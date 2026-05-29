@@ -1,0 +1,35 @@
+# Using (**) wildcart to avoid directories in all sub-repos
+
+# Build and distribution directories
+**/build/
+**/nbbuild/
+**/dist/
+**/nbdist/
+
+# User-specific NetBeans
+**/nbproject/private/
+
+# NetBeans-specific temporary or generated files
+**/nbproject/Makefile-*.mk
+**/nbproject/Package-*.bash
+**/.nb-gradle/
+
+# Ignore user config
+**/nbactions.xml
+**/nb-configuration.xml
+
+# General Java artifacts
+*.class
+*.jar
+*.war
+*.ear
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs & templates
+*.log
+*.tmp
+*.bak
