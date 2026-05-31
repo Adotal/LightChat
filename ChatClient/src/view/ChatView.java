@@ -18,7 +18,6 @@ import model.User;
  */
 public class ChatView extends JFrame {
 
-    // Componentes principales de la UI
     private JPanel panelHeader;
     private JPanel panelHistorialMensajes;
     private JScrollPane scrollChat;
@@ -28,40 +27,37 @@ public class ChatView extends JFrame {
     private JLabel lblStatusCircle;
     private JLabel lblUserName;
 
-    // Modelos de datos para el hilo de conversación
-    private User currentUser;       // Tú (Remitente)
-    private User receiverUser;      // El usuario con el que chateas (Destinatario)
+   
+    private User currentUser;       // remitente
+    private User receiverUser;      // destinatario
     private Chat chatActual;
 
     public ChatView() {
         initComponents();
-        initDataMock(); // Inicializa datos de prueba locales
+        initDataMock(); // ESO ES PARA LAS PRUEBAS 
         configurarEstilos();
         actualizarEstadoUsuario();
     }
 
-    /**
-     * Construcción de la estructura responsiva mediante código.
-     */
     private void initComponents() {
-        // Configuración básica del JFrame
+        
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        setTitle("LightChat");
+        setTitle("LightChat"); //Nombre que Adro escogio
         setSize(500, 600);
         setMinimumSize(new Dimension(400, 500));
         setLocationRelativeTo(null);
         getContentPane().setLayout(new BorderLayout());
 
-        // --- 1. ENCABEZADO (ZONA NORTH) ---
+      
         panelHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 15));
         
-        // Componente personalizado para el círculo de estado del usuario
+        // ESTADO DEL USUARIO
         lblStatusCircle = new JLabel() {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                // Si está conectado: Azul brillante (#2544c4), si no: Gris azulado (#8ba2b3)
+                // Si está conectado: Azul #2544c4 si no: Gris azulado #8ba2b3
                 if (receiverUser != null && receiverUser.isIsConnected()) {
                     g2.setColor(new Color(37, 68, 196));
                 } else {
@@ -84,7 +80,7 @@ public class ChatView extends JFrame {
         panelHeader.add(lblStatusCircle);
         panelHeader.add(lblUserName);
         
-        // Separador inferior del Header
+        // linea que separa la info del user
         JPanel headerContainer = new JPanel(new BorderLayout());
         headerContainer.add(panelHeader, BorderLayout.CENTER);
         JSeparator separator = new JSeparator();
@@ -93,7 +89,7 @@ public class ChatView extends JFrame {
         
         getContentPane().add(headerContainer, BorderLayout.NORTH);
 
-        // --- 2. HISTORIAL DE MENSAJES INFINITO (ZONA CENTER) ---
+        // zona de los mensajes 
         panelHistorialMensajes = new JPanel();
         panelHistorialMensajes.setLayout(new BoxLayout(panelHistorialMensajes, BoxLayout.Y_AXIS));
         panelHistorialMensajes.setBorder(new EmptyBorder(10, 10, 10, 10));
@@ -101,16 +97,16 @@ public class ChatView extends JFrame {
         scrollChat = new JScrollPane(panelHistorialMensajes);
         scrollChat.setBorder(null);
         scrollChat.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        scrollChat.getVerticalScrollBar().setUnitIncrement(16); // Scroll suave
+        scrollChat.getVerticalScrollBar().setUnitIncrement(16); // Scroll 
 
         getContentPane().add(scrollChat, BorderLayout.CENTER);
 
-        // --- 3. BARRA DE ENTRADA OVALADA (ZONA SOUTH) ---
-        // Contenedor general inferior
+       
+        // Contenedor para ingresar el texto y el vector de enviar
         JPanel panelSouthContainer = new JPanel(new BorderLayout());
         panelSouthContainer.setBorder(new EmptyBorder(15, 15, 15, 15));
 
-        // Panel con forma de cápsula ovalada
+        
         panelInput = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -130,7 +126,7 @@ public class ChatView extends JFrame {
         txtMensaje.setBorder(null);
         txtMensaje.setOpaque(false);
 
-        // Evento Placeholder básico
+        // Evento
         txtMensaje.addFocusListener(new java.awt.event.FocusAdapter() {
             public void focusGained(java.awt.event.FocusEvent evt) {
                 if (txtMensaje.getText().equals("Ingresa un mensaje")) {
@@ -143,13 +139,13 @@ public class ChatView extends JFrame {
                     txtMensaje.setText("Ingresa un mensaje");
                     txtMensaje.setForeground(new Color(200, 200, 200));
                     txtMensaje.setBorder(null);
-                    txtMensaje.setOpaque(false); // Le dice a Swing que no pinte su fondo por defecto
-                    txtMensaje.setBackground(new Color(0, 0, 0, 0)); // Fuerza un fondo 100% transparente
+                    txtMensaje.setOpaque(false); 
+                    txtMensaje.setBackground(new Color(0, 0, 0, 0));
                 }
             }
         });
 
-        // Botón Enviar (Flecha dibujada nativamente por vectores, lista para recibir PNG posterior)
+        // vector de enviar
         btnEnviar = new JButton() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -157,7 +153,7 @@ public class ChatView extends JFrame {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(Color.WHITE);
                 g2.setStroke(new BasicStroke(2f));
-                // Dibuja un icono vectorial de flecha/avión de papel
+                
                 int[] xPoints = {4, 20, 4, 8};
                 int[] yPoints = {4, 12, 20, 12};
                 g2.drawPolygon(xPoints, yPoints, 4);
@@ -176,7 +172,7 @@ public class ChatView extends JFrame {
 
         getContentPane().add(panelSouthContainer, BorderLayout.SOUTH);
 
-        // --- LOGICA DE ACCION (EVENTO ENVIAR) ---
+        // Evento enviar !!!
         ActionListener enviarAction = new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -184,12 +180,10 @@ public class ChatView extends JFrame {
             }
         };
         btnEnviar.addActionListener(enviarAction);
-        txtMensaje.addActionListener(enviarAction); // Enviar al presionar "Enter"
+        txtMensaje.addActionListener(enviarAction); // Enviar al presionar enter
     }
 
-    /**
-     * Aplica la paleta de colores oscuros del diseño original de la imagen.
-     */
+   
     private void configurarEstilos() {
         Color fondoOscuroPrincipal = new Color(7, 16, 51);
         
@@ -199,20 +193,16 @@ public class ChatView extends JFrame {
         panelInput.getParent().setBackground(fondoOscuroPrincipal);
     }
 
-    /**
-     * Instancia objetos mock (falsos) locales para la simulación del entorno.
-     */
+    //Esto es para simular la respuesta y el estado del usuario
     private void initDataMock() {
         currentUser = new User(1, "Anna", "annabanana@email.com", true);
-        receiverUser = new User(2, "Anna", "annabanana@email.com", true); // Cambia a false para probar el círculo gris #8ba2b3
+        receiverUser = new User(2, "Anna", "annabanana@email.com", true); // si lo pones en false, se cambia a inactivo 
         
         ArrayList<Message> listaMensajes = new ArrayList<>();
         chatActual = new Chat(101, receiverUser, listaMensajes);
     }
 
-    /**
-     * Refresca los datos del Header con la información del POJO User.
-     */
+    //mandar al pojo de user
     public void actualizarEstadoUsuario() {
         if (receiverUser != null) {
             lblUserName.setText(receiverUser.getUserName());
@@ -220,34 +210,32 @@ public class ChatView extends JFrame {
         }
     }
 
-    /**
-     * Controla el flujo de envío del POJO Message y simula la respuesta inmediata (Eco).
-     */
+    //Si mula resuesta 
     private void procesarMensajeEnviado() {
         String texto = txtMensaje.getText().trim();
         if (texto.isEmpty() || texto.equals("Ingresa un mensaje")) {
             return;
         }
 
-        // 1. Crear el objeto POJO Message para el remitente (Tú)
+     //pojo mensaje de remitente 
         Message mensajeMio = new Message(currentUser, receiverUser, texto, LocalDateTime.now());
         chatActual.getMessages().add(mensajeMio);
 
-        // 2. Pintarlo en la interfaz de forma responsiva (Alineado a la Derecha)
+       
         agregarBurbujaMensaje(mensajeMio, true);
         
-        // Limpiar caja de texto
+       
         txtMensaje.setText("");
         txtMensaje.requestFocus();
 
-        // 3. SIMULACIÓN DEL BACKEND (ECO): El otro usuario te regresa exactamente el mismo texto
+        // simulacion el otro usuario te regresa exactamente el mismo texto
         Timer timerEco = new Timer(800, new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 Message mensajeEco = new Message(receiverUser, currentUser, " " + mensajeMio.getText(), LocalDateTime.now());
                 chatActual.getMessages().add(mensajeEco);
                 
-                // Pintarlo en la interfaz (Alineado a la Izquierda)
+               
                 agregarBurbujaMensaje(mensajeEco, false);
             }
         });
@@ -255,11 +243,9 @@ public class ChatView extends JFrame {
         timerEco.start();
     }
 
-    /**
-     * Genera dinámicamente las burbujas redondeadas y las empaqueta de forma responsiva.
-     */
+    
     private void agregarBurbujaMensaje(Message msg, boolean esMio) {
-        // Contenedor de fila para forzar alineación lateral correcta al estirar la pantalla
+        
         JPanel filaPanel = new JPanel(new GridBagLayout());
         filaPanel.setOpaque(false);
         filaPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
@@ -268,11 +254,11 @@ public class ChatView extends JFrame {
         gbc.gridx = 0;
         gbc.gridy = 0;
         gbc.weightx = 1.0; 
-        // Si es mío, se recarga a la derecha (EAST). Si es del otro, a la izquierda (WEST).
+        
         gbc.anchor = esMio ? GridBagConstraints.EAST : GridBagConstraints.WEST;
         gbc.fill = GridBagConstraints.NONE;
 
-        // Burbuja de texto con diseño redondeado exacto
+        
         JPanel burbuja = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -299,21 +285,21 @@ public class ChatView extends JFrame {
 
         filaPanel.add(burbuja, gbc);
 
-        // Añadir al panel general de historial y refrescar interfaz
+      
         panelHistorialMensajes.add(filaPanel);
         panelHistorialMensajes.revalidate();
         panelHistorialMensajes.repaint();
 
-        // Autoscroll: Mueve la barra de desplazamiento hacia abajo de forma automática
+        // Autoscroll
         SwingUtilities.invokeLater(() -> {
             JScrollBar vertical = scrollChat.getVerticalScrollBar();
             vertical.setValue(vertical.getMaximum());
         });
     }
 
-    /**
-     * Ejecutable principal del ChatView.
-     */
+    
+      //Ejecutable
+    
     public static void main(String args[]) {
         try {
             for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
