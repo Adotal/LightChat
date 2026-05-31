@@ -53,7 +53,6 @@ public class UsersListView extends JFrame {
 
         panelBaseContenido = new JPanel(new BorderLayout());
         
-        
         panelHeaderTabs = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
         
         btnTabTodos = crearBotonPestaña("Todos", "TODOS");
@@ -72,7 +71,6 @@ public class UsersListView extends JFrame {
         
         panelBaseContenido.add(headerContainer, BorderLayout.NORTH);
 
-    
         panelListaContactos = new JPanel(new GridBagLayout());
         panelListaContactos.setBorder(new EmptyBorder(5, 0, 80, 0)); 
 
@@ -84,7 +82,7 @@ public class UsersListView extends JFrame {
         panelBaseContenido.add(scrollContactos, BorderLayout.CENTER);
         layeredPane.add(panelBaseContenido, JLayeredPane.DEFAULT_LAYER);
 
-        // Barra de navegacion (notificaciones y cerrar sesion)
+        // Barra de navegación (notificaciones y cerrar sesión)
         panelNavigationBottom = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -118,7 +116,17 @@ public class UsersListView extends JFrame {
         };
         configurarBotonIcono(btnNotificaciones);
 
-        //  Cerrar Sesión 
+        // NAVEGACIÓN
+        btnNotificaciones.addActionListener(e -> {
+            try {
+                new FriendsRequestView().setVisible(true);
+                dispose();
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "FriendsRequestView no encontrada.");
+            }
+        });
+
+        // Cerrar Sesión 
         btnCerrarSesion = new JButton() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -127,14 +135,11 @@ public class UsersListView extends JFrame {
                 g2.setColor(Color.WHITE);
                 g2.setStroke(new BasicStroke(1.6f));
                 
-                
                 g2.drawRoundRect(4, 4, 11, 16, 5, 5);
-                
                 
                 g2.setColor(new Color(20, 31, 66));
                 g2.fillRect(14, 8, 3, 8);
                 
-               
                 g2.setColor(Color.WHITE);
                 g2.drawLine(9, 12, 20, 12);
                 g2.drawLine(16, 8, 20, 12);
@@ -148,9 +153,17 @@ public class UsersListView extends JFrame {
         panelNavigationBottom.add(btnCerrarSesion);
         layeredPane.add(panelNavigationBottom, JLayeredPane.PALETTE_LAYER);
 
+        // NAVEGACIÓN: Al aceptar cerrar sesión
         btnCerrarSesion.addActionListener(e -> {
             int respuesta = JOptionPane.showConfirmDialog(this, "¿Seguro de cerrar sesión?", "Cerrar Sesión", JOptionPane.YES_NO_OPTION);
-            if (respuesta == JOptionPane.YES_OPTION) System.exit(0);
+            if (respuesta == JOptionPane.YES_OPTION) {
+                try {
+                    new LoginView().setVisible(true);
+                    dispose();
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this, "LoginView no encontrada.");
+                }
+            }
         });
 
         addComponentListener(new java.awt.event.ComponentAdapter() {
@@ -171,7 +184,7 @@ public class UsersListView extends JFrame {
         scrollContactos.getViewport().setBackground(fondoOscuroPrincipal);
         panelBaseContenido.setBackground(fondoOscuroPrincipal);
     }
-//SIMULACION DE CONTACTO true or false es si esta en linea o no 
+
     private void initDataMock() {
         listaUsuariosMock = new ArrayList<>();
         listaIdAmigosMock = new ArrayList<>();
@@ -235,13 +248,26 @@ public class UsersListView extends JFrame {
         fila.add(btnAccion, BorderLayout.EAST);
         
         configurarEventosHover(fila, btnAccion);
+
+        // NAVEGACIÓN: Al hacer clic en cualquier parte de la fila del usuario, abre el ChatView
+        fila.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                try {
+                    new ChatView().setVisible(true);
+                    dispose();
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(UsersListView.this, "ChatView no encontrada.");
+                }
+            }
+        });
+
         return armarFilaCompleta(fila);
     }
 
     private JPanel crearFilaGrupo(String nombre) {
         JPanel fila = crearContenedorFila();
         
-        //Icono del grupo
         JLabel lblIcono = new JLabel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -250,18 +276,14 @@ public class UsersListView extends JFrame {
                 g2.setColor(new Color(112, 142, 255)); 
                 g2.setStroke(new BasicStroke(1.3f));
                 
-                
                 g2.drawOval(0, 0, 31, 31); 
                 
-               
                 g2.drawOval(11, 6, 8, 8); 
                 g2.drawArc(6, 15, 18, 11, 0, 180); 
                 
-               
                 g2.drawOval(5, 10, 6, 6); 
                 g2.drawArc(1, 17, 13, 9, 0, 180); 
                 
-     
                 g2.drawOval(19, 10, 6, 6); 
                 g2.drawArc(16, 17, 13, 9, 0, 180); 
                 
@@ -278,6 +300,20 @@ public class UsersListView extends JFrame {
         content.add(textos);
         
         fila.add(content, BorderLayout.WEST);
+
+        // NAVEGACIÓN: Al hacer clic en la fila del grupo, también abre el ChatView CAMBIAR A CHAT DE GRUPO
+        fila.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                try {
+                    new ChatView().setVisible(true);
+                    dispose();
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(UsersListView.this, "ChatView no encontrada.");
+                }
+            }
+        });
+
         return armarFilaCompleta(fila);
     }
 
@@ -317,6 +353,7 @@ public class UsersListView extends JFrame {
         fila.setPreferredSize(new Dimension(200, 54));
         fila.setMaximumSize(new Dimension(3000, 54));
         fila.setBorder(new EmptyBorder(0, 20, 0, 20));
+        fila.setCursor(new Cursor(Cursor.HAND_CURSOR)); // Cursor de mano al pasar por encima del contacto
         return fila;
     }
 
@@ -341,7 +378,7 @@ public class UsersListView extends JFrame {
                 if (estado[0].equals("AMIGO")) {
                     g2.drawLine(16, 12, 18, 15); g2.drawLine(18, 15, 23, 9);
                 } else if (estado[0].equals("ESPERANDO")) {
-                    g2.setColor(new Color(112, 142, 255)); // PUNTOS AZULES DE ESPERA
+                    g2.setColor(new Color(112, 142, 255));
                     g2.fillOval(16, 11, 2, 2); g2.fillOval(19, 11, 2, 2); g2.fillOval(22, 11, 2, 2);
                 } else {
                     g2.drawLine(19, 8, 19, 14); g2.drawLine(16, 11, 22, 11);

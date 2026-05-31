@@ -14,6 +14,7 @@ public class FriendsRequestView extends JFrame {
     private JPanel panelPrincipal;
     private JScrollPane scrollPrincipal;
     private JPanel containerInvitaciones;
+    private JButton btnVolver; // Nuevo botón de regreso
 
     public FriendsRequestView() {
         initComponents();
@@ -30,10 +31,41 @@ public class FriendsRequestView extends JFrame {
 
         panelPrincipal = new JPanel(new BorderLayout());
         
-        
-        JPanel panelHeader = new JPanel(new BorderLayout(15, 0));
+       
+        JPanel panelHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 0));
         panelHeader.setOpaque(false);
-        panelHeader.setBorder(new EmptyBorder(25, 25, 10, 25));
+        panelHeader.setBorder(new EmptyBorder(25, 20, 10, 20));
+        
+        // BOTÓN VOLVER
+        btnVolver = new JButton() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                
+              
+                g2.drawLine(16, 6, 8, 12);
+                g2.drawLine(8, 12, 16, 18);
+                g2.dispose();
+            }
+        };
+        btnVolver.setPreferredSize(new Dimension(24, 24));
+        btnVolver.setContentAreaFilled(false);
+        btnVolver.setBorderPainted(false);
+        btnVolver.setFocusPainted(false);
+        btnVolver.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        // Acción de navegación para retornar a la lista principal
+        btnVolver.addActionListener(e -> {
+            try {
+                new UsersListView().setVisible(true);
+                dispose();
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "UsersListView no encontrada.");
+            }
+        });
         
         JLabel lblIconoCampana = new JLabel() {
             @Override
@@ -55,21 +87,26 @@ public class FriendsRequestView extends JFrame {
         };
 
         JSeparator sepHeader = new JSeparator(JSeparator.HORIZONTAL);
-        sepHeader.setForeground(new Color(255, 255, 255, 80));
+        sepHeader.setForeground(new Color(255, 255, 255, 50));
 
+        
         JPanel panelLineContainer = new JPanel(new GridBagLayout());
         panelLineContainer.setOpaque(false);
+        
+        panelLineContainer.setPreferredSize(new Dimension(270, 24)); 
         GridBagConstraints gbcL = new GridBagConstraints();
         gbcL.fill = GridBagConstraints.HORIZONTAL;
         gbcL.weightx = 1.0;
         panelLineContainer.add(sepHeader, gbcL);
 
-        panelHeader.add(lblIconoCampana, BorderLayout.WEST);
-        panelHeader.add(panelLineContainer, BorderLayout.CENTER);
+        
+        panelHeader.add(btnVolver);
+        panelHeader.add(lblIconoCampana);
+        panelHeader.add(panelLineContainer);
 
         panelPrincipal.add(panelHeader, BorderLayout.NORTH);
 
-       ///scrol
+        // Scroll
         containerInvitaciones = new JPanel();
         containerInvitaciones.setLayout(new BoxLayout(containerInvitaciones, BoxLayout.Y_AXIS));
         containerInvitaciones.setOpaque(false);
@@ -93,7 +130,7 @@ public class FriendsRequestView extends JFrame {
     }
 
     private void cargarDatosPrueba() {
-        //INVITACIONES RECIBIDAS 
+        // INVITACIONES RECIBIDAS 
         JPanel cardRecibidas = crearTarjetaSeccion("Invitaciones recibidas");
         cardRecibidas.add(crearFilaInvitacion("Quiere ser tu amigo", "UsuarioX quiere ser tu amigo", true, cardRecibidas));
         cardRecibidas.add(crearFilaInvitacion("Nuevo grupo", "Nombre del grupo", true, cardRecibidas));
@@ -101,7 +138,7 @@ public class FriendsRequestView extends JFrame {
         containerInvitaciones.add(cardRecibidas);
         containerInvitaciones.add(Box.createVerticalStrut(20)); 
 
-        //INVITACIONES ENVIADAS
+        // INVITACIONES ENVIADAS
         JPanel cardEnviadas = crearTarjetaSeccion("Invitaciones enviadas");
         cardEnviadas.add(crearFilaInvitacion("Usuario X", "Por confirmar invitacion de amistad", false, cardEnviadas));
         
@@ -144,7 +181,7 @@ public class FriendsRequestView extends JFrame {
         filaContenedor.setMinimumSize(new Dimension(200, 48));
         filaContenedor.setMaximumSize(new Dimension(4000, 48));
 
-        //SOLICITUD NORMAL 
+        // SOLICITUD NORMAL 
         JPanel panelNormal = new JPanel(new BorderLayout());
         panelNormal.setOpaque(false);
         panelNormal.setBorder(new EmptyBorder(4, 22, 4, 22));
@@ -167,7 +204,7 @@ public class FriendsRequestView extends JFrame {
         JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 4));
         panelBotones.setOpaque(false);
 
-        // Accion de aceptar, rechazar y deshacer
+        // Acción de aceptar, rechazar y deshacer
         JPanel panelFeedback = new JPanel(new BorderLayout());
         panelFeedback.setOpaque(false);
         panelFeedback.setBorder(new EmptyBorder(4, 22, 4, 22));
@@ -186,7 +223,6 @@ public class FriendsRequestView extends JFrame {
         btnDeshacer.setCursor(new Cursor(Cursor.HAND_CURSOR));
         panelFeedback.add(btnDeshacer, BorderLayout.EAST);
 
-       
         filaContenedor.add(panelNormal, "NORMAL");
         filaContenedor.add(panelFeedback, "FEEDBACK");
 
