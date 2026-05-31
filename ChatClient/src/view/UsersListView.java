@@ -31,12 +31,13 @@ public class UsersListView extends JFrame {
 
     private ArrayList<User> listaUsuariosMock;
     private ArrayList<Integer> listaIdAmigosMock; 
+    private String pestañaActiva = "TODOS";
 
     public UsersListView() {
         initComponents();
         initDataMock(); 
         configurarEstilos();
-        cargarContactosEnInterfaz();
+        cargarContenidoSegunPestaña();
     }
 
     private void initComponents() {
@@ -51,12 +52,13 @@ public class UsersListView extends JFrame {
         getContentPane().add(layeredPane, BorderLayout.CENTER);
 
         panelBaseContenido = new JPanel(new BorderLayout());
-      
-        panelHeaderTabs = new JPanel(new FlowLayout(FlowLayout.CENTER, 25, 8));
         
-        btnTabTodos = crearBotonTab("Todos", true);
-        btnTabAmigos = crearBotonTab("Amigos", false);
-        btnTabGrupos = crearBotonTab("Grupos", false);
+        
+        panelHeaderTabs = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
+        
+        btnTabTodos = crearBotonPestaña("Todos", "TODOS");
+        btnTabAmigos = crearBotonPestaña("Amigos", "AMIGOS");
+        btnTabGrupos = crearBotonPestaña("Grupos", "GRUPOS");
 
         panelHeaderTabs.add(btnTabTodos);
         panelHeaderTabs.add(btnTabAmigos);
@@ -70,7 +72,7 @@ public class UsersListView extends JFrame {
         
         panelBaseContenido.add(headerContainer, BorderLayout.NORTH);
 
-        // Lista de contactos 
+    
         panelListaContactos = new JPanel(new GridBagLayout());
         panelListaContactos.setBorder(new EmptyBorder(5, 0, 80, 0)); 
 
@@ -95,7 +97,8 @@ public class UsersListView extends JFrame {
         };
         panelNavigationBottom.setLayout(new FlowLayout(FlowLayout.CENTER, 35, 8));
         panelNavigationBottom.setOpaque(false);
-// icono campana
+
+        // Campana de notificaciones
         btnNotificaciones = new JButton() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -103,13 +106,11 @@ public class UsersListView extends JFrame {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(Color.WHITE);
                 g2.setStroke(new BasicStroke(1.5f));
-                
                 g2.drawArc(7, 4, 10, 12, 0, 180);
                 g2.drawLine(7, 10, 5, 15);
                 g2.drawLine(17, 10, 19, 15);
                 g2.drawLine(5, 15, 19, 15);
                 g2.drawArc(10, 15, 4, 3, 180, 180);
-                
                 g2.setColor(new Color(112, 142, 255));
                 g2.fill(new Ellipse2D.Double(15, 3, 5, 5));
                 g2.dispose();
@@ -117,7 +118,7 @@ public class UsersListView extends JFrame {
         };
         configurarBotonIcono(btnNotificaciones);
 
-     //icono cerrar sesion
+        //  Cerrar Sesión 
         btnCerrarSesion = new JButton() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -126,7 +127,7 @@ public class UsersListView extends JFrame {
                 g2.setColor(Color.WHITE);
                 g2.setStroke(new BasicStroke(1.6f));
                 
-                //contenedor
+                
                 g2.drawRoundRect(4, 4, 11, 16, 5, 5);
                 
                 
@@ -145,37 +146,20 @@ public class UsersListView extends JFrame {
 
         panelNavigationBottom.add(btnNotificaciones);
         panelNavigationBottom.add(btnCerrarSesion);
-        
         layeredPane.add(panelNavigationBottom, JLayeredPane.PALETTE_LAYER);
 
         btnCerrarSesion.addActionListener(e -> {
-            int respuesta = JOptionPane.showConfirmDialog(
-                    UsersListView.this, 
-                    "¿Seguro de cerrar sesión?", 
-                    "Cerrar Sesión", 
-                    JOptionPane.YES_NO_OPTION, 
-                    JOptionPane.QUESTION_MESSAGE
-            );
-            if (respuesta == JOptionPane.YES_OPTION) {
-                System.exit(0);
-            }
+            int respuesta = JOptionPane.showConfirmDialog(this, "¿Seguro de cerrar sesión?", "Cerrar Sesión", JOptionPane.YES_NO_OPTION);
+            if (respuesta == JOptionPane.YES_OPTION) System.exit(0);
         });
 
-        // Responsividad
         addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentResized(java.awt.event.ComponentEvent evt) {
                 int width = layeredPane.getWidth();
                 int height = layeredPane.getHeight();
-                
                 panelBaseContenido.setBounds(0, 0, width, height);
-                
-                int barWidth = 210;
-                int barHeight = 48;
-                int barX = (width - barWidth) / 2;
-                int barY = height - barHeight - 20; 
-                
-                panelNavigationBottom.setBounds(barX, barY, barWidth, barHeight);
+                panelNavigationBottom.setBounds((width - 210) / 2, height - 68, 210, 48);
             }
         });
     }
@@ -187,60 +171,46 @@ public class UsersListView extends JFrame {
         scrollContactos.getViewport().setBackground(fondoOscuroPrincipal);
         panelBaseContenido.setBackground(fondoOscuroPrincipal);
     }
-
+//SIMULACION DE CONTACTO true or false es si esta en linea o no 
     private void initDataMock() {
         listaUsuariosMock = new ArrayList<>();
         listaIdAmigosMock = new ArrayList<>();
-
-        listaUsuariosMock.add(new User(1, "Anna", "anna@email.com", true));
+        listaUsuariosMock.add(new User(1, "Anna", "anna@email.com", false));
         listaUsuariosMock.add(new User(2, "Fernando", "fernando@email.com", false));
         listaUsuariosMock.add(new User(3, "Damaris", "damaris@email.com", true));
         listaUsuariosMock.add(new User(4, "Adro", "adro@email.com", false));
-
         listaIdAmigosMock.add(1);
         listaIdAmigosMock.add(3);
     }
 
-    private void cargarContactosEnInterfaz() {
+    private void cargarContenidoSegunPestaña() {
         panelListaContactos.removeAll();
-        
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.weightx = 1.0;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.anchor = GridBagConstraints.NORTH; 
+        gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 1.0; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.anchor = GridBagConstraints.NORTH; 
 
-        for (User user : listaUsuariosMock) {
-            panelListaContactos.add(crearFilaContacto(user, listaIdAmigosMock.contains(user.getId())), gbc);
-            gbc.gridy++;
+        if (pestañaActiva.equals("GRUPOS")) {
+            panelListaContactos.add(crearFilaGrupo("Nombre del grupo 1"), gbc); gbc.gridy++;
+            panelListaContactos.add(crearFilaGrupo("Nombre del grupo 2"), gbc); gbc.gridy++;
+        } else {
+            for (User user : listaUsuariosMock) {
+                boolean esAmigo = listaIdAmigosMock.contains(user.getId());
+                if (pestañaActiva.equals("AMIGOS") && !esAmigo) continue;
+                panelListaContactos.add(crearFilaContacto(user, esAmigo), gbc);
+                gbc.gridy++;
+            }
         }
         
         gbc.weighty = 1.0;
-        JPanel panelEmpujador = new JPanel();
-        panelEmpujador.setOpaque(false);
-        panelListaContactos.add(panelEmpujador, gbc);
-        
-        panelListaContactos.revalidate();
-        panelListaContactos.repaint();
+        JPanel empujador = new JPanel(); empujador.setOpaque(false);
+        panelListaContactos.add(empujador, gbc);
+        panelListaContactos.revalidate(); panelListaContactos.repaint();
     }
 
-    private JPanel crearFilaContacto(User usuario, boolean esAmigo) {
-        // Estados de contacto 
-        final String[] estadoContacto = { esAmigo ? "AMIGO" : "NINGUNO" };
+    private JPanel crearFilaContacto(User usuario, boolean esAmigoInitial) {
+        final String[] estado = { esAmigoInitial ? "AMIGO" : "NINGUNO" };
+        JPanel fila = crearContenedorFila();
         
-        JPanel fila = new JPanel(new BorderLayout());
-        fila.setOpaque(false);
-        
-        fila.setPreferredSize(new Dimension(200, 54));
-        fila.setMinimumSize(new Dimension(200, 54));
-        fila.setMaximumSize(new Dimension(3000, 54));
-        fila.setBorder(new EmptyBorder(0, 20, 0, 20)); 
-
-        JPanel panelIzquierdo = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 11)); 
-        panelIzquierdo.setOpaque(false);
-
-        JLabel lblAvatarCircle = new JLabel() {
+        JLabel lblAvatar = new JLabel() {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
@@ -250,166 +220,170 @@ public class UsersListView extends JFrame {
                 g2.dispose();
             }
             @Override
-            public Dimension getPreferredSize() {
-                return new Dimension(32, 32);
-            }
+            public Dimension getPreferredSize() { return new Dimension(32, 32); }
         };
 
-        JPanel panelTextos = new JPanel(new GridLayout(2, 1, 0, -2)); 
-        panelTextos.setOpaque(false);
+        JButton btnAccion = crearBotonAccionContacto(estado);
+        JPanel textos = crearPanelTextos(usuario.getUserName(), "Ultimo mensaje");
+        
+        JPanel content = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 11));
+        content.setOpaque(false);
+        content.add(lblAvatar);
+        content.add(textos);
+        
+        fila.add(content, BorderLayout.WEST);
+        fila.add(btnAccion, BorderLayout.EAST);
+        
+        configurarEventosHover(fila, btnAccion);
+        return armarFilaCompleta(fila);
+    }
 
-        JLabel lblNombre = new JLabel(usuario.getUserName());
-        lblNombre.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        lblNombre.setForeground(Color.WHITE);
+    private JPanel crearFilaGrupo(String nombre) {
+        JPanel fila = crearContenedorFila();
+        
+        //Icono del grupo
+        JLabel lblIcono = new JLabel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(112, 142, 255)); 
+                g2.setStroke(new BasicStroke(1.3f));
+                
+                
+                g2.drawOval(0, 0, 31, 31); 
+                
+               
+                g2.drawOval(11, 6, 8, 8); 
+                g2.drawArc(6, 15, 18, 11, 0, 180); 
+                
+               
+                g2.drawOval(5, 10, 6, 6); 
+                g2.drawArc(1, 17, 13, 9, 0, 180); 
+                
+     
+                g2.drawOval(19, 10, 6, 6); 
+                g2.drawArc(16, 17, 13, 9, 0, 180); 
+                
+                g2.dispose();
+            }
+            @Override
+            public Dimension getPreferredSize() { return new Dimension(32, 32); }
+        };
 
-        JLabel lblSubtexto = new JLabel("Ultimo mensaje");
-        lblSubtexto.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        lblSubtexto.setForeground(new Color(140, 150, 180));
+        JPanel textos = crearPanelTextos(nombre, "Ultimo mensaje");
+        JPanel content = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 11));
+        content.setOpaque(false);
+        content.add(lblIcono);
+        content.add(textos);
+        
+        fila.add(content, BorderLayout.WEST);
+        return armarFilaCompleta(fila);
+    }
 
-        panelTextos.add(lblNombre);
-        panelTextos.add(lblSubtexto);
+    private JButton crearBotonPestaña(String texto, String id) {
+        JButton btn = new JButton(texto) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                if (pestañaActiva.equals(id)) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(new Color(23, 35, 74));
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
+                    g2.dispose();
+                }
+                super.paintComponent(g);
+            }
+        };
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btn.setForeground(Color.WHITE);
+        btn.setPreferredSize(new Dimension(90, 32));
+        btn.setContentAreaFilled(false);
+        btn.setBorderPainted(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        btn.addActionListener(e -> {
+            pestañaActiva = id;
+            panelHeaderTabs.repaint();
+            cargarContenidoSegunPestaña();
+        });
+        return btn;
+    }
 
-        panelIzquierdo.add(lblAvatarCircle);
-        panelIzquierdo.add(panelTextos);
+    private JPanel crearContenedorFila() {
+        JPanel fila = new JPanel(new BorderLayout());
+        fila.setOpaque(false);
+        fila.setPreferredSize(new Dimension(200, 54));
+        fila.setMaximumSize(new Dimension(3000, 54));
+        fila.setBorder(new EmptyBorder(0, 20, 0, 20));
+        return fila;
+    }
 
-        //icono de estado 
-        JButton btnAccionAmigo = new JButton() {
+    private JPanel crearPanelTextos(String titulo, String sub) {
+        JPanel p = new JPanel(new GridLayout(2, 1, 0, -2));
+        p.setOpaque(false);
+        JLabel t = new JLabel(titulo); t.setFont(new Font("Segoe UI", Font.BOLD, 14)); t.setForeground(Color.WHITE);
+        JLabel s = new JLabel(sub); s.setFont(new Font("Segoe UI", Font.PLAIN, 12)); s.setForeground(new Color(140, 150, 180));
+        p.add(t); p.add(s);
+        return p;
+    }
+
+    private JButton crearBotonAccionContacto(String[] estado) {
+        JButton btn = new JButton() {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setStroke(new BasicStroke(1.5f));
-
-                // Silueta de usuario 
-                g2.setColor(estadoContacto[0].equals("AMIGO") ? new Color(112, 142, 255) : Color.WHITE);
-                g2.drawOval(4, 3, 8, 8);
-                g2.drawArc(1, 13, 14, 8, 0, 180);
-
-                if (estadoContacto[0].equals("AMIGO")) {
-                    //amigos
-                    g2.setColor(new Color(112, 142, 255));
-                    g2.drawLine(16, 12, 18, 15);
-                    g2.drawLine(18, 15, 23, 9);
-                } else if (estadoContacto[0].equals("ESPERANDO")) {
-                    // pendiente
-                    g2.setColor(new Color(112, 142, 255)); 
-                    g2.fillOval(16, 11, 2, 2);
-                    g2.fillOval(19, 11, 2, 2);
-                    g2.fillOval(22, 11, 2, 2);
+                g2.setColor(estado[0].equals("AMIGO") ? new Color(112, 142, 255) : Color.WHITE);
+                g2.drawOval(4, 3, 8, 8); g2.drawArc(1, 13, 14, 8, 0, 180);
+                if (estado[0].equals("AMIGO")) {
+                    g2.drawLine(16, 12, 18, 15); g2.drawLine(18, 15, 23, 9);
+                } else if (estado[0].equals("ESPERANDO")) {
+                    g2.setColor(new Color(112, 142, 255)); // PUNTOS AZULES DE ESPERA
+                    g2.fillOval(16, 11, 2, 2); g2.fillOval(19, 11, 2, 2); g2.fillOval(22, 11, 2, 2);
                 } else {
-                    //general
-                    g2.setColor(Color.WHITE);
-                    g2.drawLine(19, 8, 19, 14);
-                    g2.drawLine(16, 11, 22, 11);
+                    g2.drawLine(19, 8, 19, 14); g2.drawLine(16, 11, 22, 11);
                 }
                 g2.dispose();
             }
         };
-        configurarBotonIcono(btnAccionAmigo);
-        btnAccionAmigo.setVisible(false); 
-
-        // Mensaje emergente sombre estado de contacto 
-        btnAccionAmigo.addActionListener(e -> {
-            if (estadoContacto[0].equals("AMIGO")) {
-                JOptionPane.showMessageDialog(
-                        UsersListView.this, 
-                        "Este contacto ya es tu amigo", 
-                        "Información", 
-                        JOptionPane.INFORMATION_MESSAGE
-                );
-            } else if (estadoContacto[0].equals("ESPERANDO")) {
-                JOptionPane.showMessageDialog(
-                        UsersListView.this, 
-                        "Esperando respuesta a la solicitud", 
-                        "Solicitud Pendiente", 
-                        JOptionPane.WARNING_MESSAGE
-                );
-            } else {
-                JOptionPane.showMessageDialog(
-                        UsersListView.this, 
-                        "Solicitud de amistad enviada", 
-                        "Estado de Solicitud", 
-                        JOptionPane.INFORMATION_MESSAGE
-                );
-                // esperando
-                estadoContacto[0] = "ESPERANDO"; 
-                btnAccionAmigo.repaint();
+        configurarBotonIcono(btn);
+        btn.setVisible(false);
+        btn.addActionListener(e -> {
+            if (estado[0].equals("AMIGO")) JOptionPane.showMessageDialog(this, "Este contacto ya es tu amigo");
+            else if (estado[0].equals("ESPERANDO")) JOptionPane.showMessageDialog(this, "Esperando respuesta a la solicitud", "Pendiente", JOptionPane.WARNING_MESSAGE);
+            else {
+                JOptionPane.showMessageDialog(this, "Solicitud de amistad enviada");
+                estado[0] = "ESPERANDO"; btn.repaint();
             }
         });
-
-        fila.add(panelIzquierdo, BorderLayout.WEST);
-        fila.add(btnAccionAmigo, BorderLayout.EAST);
-
-        fila.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseEntered(MouseEvent e) {
-                btnAccionAmigo.setVisible(true);
-                fila.repaint();
-            }
-            @Override
-            public void mouseExited(MouseEvent e) {
-                if (!fila.getBounds().contains(e.getPoint())) {
-                    btnAccionAmigo.setVisible(false);
-                    fila.repaint();
-                }
-            }
-        });
-
-        JSeparator div = new JSeparator();
-        div.setForeground(new Color(255, 255, 255, 12));
-        
-        JPanel contenedorFilaCompleta = new JPanel(new BorderLayout());
-        contenedorFilaCompleta.setOpaque(false);
-        contenedorFilaCompleta.add(fila, BorderLayout.CENTER);
-        contenedorFilaCompleta.add(div, BorderLayout.SOUTH);
-
-        return contenedorFilaCompleta;
-    }
-
-    private void ajustarEstilosBotonesTab(JButton btn, boolean sel) {
-        btn.setFont(new Font("Segoe UI", sel ? Font.BOLD : Font.PLAIN, 14));
-        btn.setForeground(sel ? Color.WHITE : new Color(120, 130, 160));
-    }
-
-    private void configurarBotonIcono(JButton btn) {
-        btn.setPreferredSize(new Dimension(24, 24));
-        btn.setContentAreaFilled(false);
-        btn.setBorderPainted(false);
-        btn.setFocusPainted(false);
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-    }
-
-    private JButton crearBotonTab(String texto, boolean seleccionado) {
-        JButton btn = new JButton(texto);
-        ajustarEstilosBotonesTab(btn, seleccionado);
-        btn.setContentAreaFilled(false);
-        btn.setBorderPainted(false);
-        btn.setFocusPainted(false);
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-        if (seleccionado) {
-            btn.setBorder(BorderFactory.createCompoundBorder(
-                    BorderFactory.createMatteBorder(0, 0, 2, 0, new Color(57, 79, 133)),
-                    BorderFactory.createEmptyBorder(0, 3, 3, 3)
-            ));
-        }
         return btn;
     }
 
-    public static void main(String args[]) {
-        try {
-            for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    UIManager.setLookAndFeel(info.getClassName());
-                    break;
-                }
-            }
-        } catch (Exception ex) {
-            java.util.logging.Logger.getLogger(UsersListView.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        }
-
-        EventQueue.invokeLater(() -> {
-            new UsersListView().setVisible(true);
+    private void configurarEventosHover(JPanel fila, JButton btn) {
+        fila.addMouseListener(new MouseAdapter() {
+            @Override public void mouseEntered(MouseEvent e) { btn.setVisible(true); fila.repaint(); }
+            @Override public void mouseExited(MouseEvent e) { if (!fila.getBounds().contains(e.getPoint())) { btn.setVisible(false); fila.repaint(); } }
         });
+    }
+
+    private JPanel armarFilaCompleta(JPanel fila) {
+        JSeparator div = new JSeparator(); div.setForeground(new Color(255, 255, 255, 12));
+        JPanel contenedor = new JPanel(new BorderLayout());
+        contenedor.setOpaque(false);
+        contenedor.add(fila, BorderLayout.CENTER);
+        contenedor.add(div, BorderLayout.SOUTH);
+        return contenedor;
+    }
+
+    private void configurarBotonIcono(JButton btn) {
+        btn.setPreferredSize(new Dimension(24, 24)); btn.setContentAreaFilled(false); btn.setBorderPainted(false); btn.setFocusPainted(false); btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+    }
+
+    public static void main(String args[]) {
+        try { for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) if ("Nimbus".equals(info.getName())) { UIManager.setLookAndFeel(info.getClassName()); break; } } catch (Exception ex) {}
+        EventQueue.invokeLater(() -> new UsersListView().setVisible(true));
     }
 }
