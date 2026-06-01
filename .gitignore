@@ -8,6 +8,9 @@
 
 # User-specific NetBeans
 **/nbproject/private/
+nbproject/private/
+build/
+dist/
 
 # NetBeans-specific temporary or generated files
 **/nbproject/Makefile-*.mk
