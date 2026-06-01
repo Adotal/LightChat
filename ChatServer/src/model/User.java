@@ -45,6 +45,6 @@ public class User {
      
         @Override
     public String toString() {        
-        return "Username: " + userName + " Email: " + email + " IsConnected: " + isConnected;
+        return "Username: " + name + " Email: " + email + " satate: " + state;
     }
 }

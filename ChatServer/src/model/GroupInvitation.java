@@ -57,7 +57,7 @@ public class GroupInvitation extends Request {
     }
 
     public String getInvitationMessage() {
-        return groupOwnerUser.getUserName() + " te invitó a " + group.getTitle();
+        return groupOwnerUser.getName() + " te invitó a " + group.getTitle();
     }
 
 }

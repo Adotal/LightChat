@@ -15,8 +15,8 @@ public class UserGroup extends User {
         this.invitation = new GroupInvitation();
     }
 
-    public UserGroup(GroupInvitation invitation, int id, String userName, String email, boolean isConnected) {
-        super(id, userName, email, isConnected);
+    public UserGroup(GroupInvitation invitation, int id, String userName, String email, String state) {
+//        super(idUser, name, email, state);
         // Penging default status fir incitation
         this.invitation = invitation;
     }
