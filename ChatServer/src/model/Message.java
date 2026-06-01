@@ -1,59 +1,38 @@
 package model;
 
-import java.time.LocalDateTime;
-
 /**
  *
- * @author adotal
+ * @author Kosey
  */
 public class Message {
+    private int idMessage;
+    private int idConversation;
+    private int idSender;
+    private String content;
+    private String sentDate;
 
-    private User userSender;
-    private User userReceiver;
-    private String text;
-    private LocalDateTime sendedAt;
+    public Message() {}
 
-    public Message() {
-
+    public Message(int idMessage, int idConversation, int idSender, String content, String sentDate) {
+        this.idMessage = idMessage;
+        this.idConversation = idConversation;
+        this.idSender = idSender;
+        this.content = content;
+        this.sentDate = sentDate;
     }
 
-    public Message(User userSender, User userReciver, String text, LocalDateTime sendedAt) {
-        this.userSender = userSender;
-        this.userReceiver = userReceiver;
-        this.text = text;
-        this.sendedAt = sendedAt;
-    }
+    public int getIdMessage() { return idMessage; }
+    public void setIdMessage(int idMessage) { this.idMessage = idMessage; }
 
-    public User getUserSender() {
-        return userSender;
-    }
+    public int getIdConversation() { return idConversation; }
+    public void setIdConversation(int idConversation) { this.idConversation = idConversation; }
 
-    public void setUserSender(User userSender) {
-        this.userSender = userSender;
-    }
+    public int getIdSender() { return idSender; }
+    public void setIdSender(int idSender) { this.idSender = idSender; }
 
-    public User getUserReceiver() {
-        return userReceiver;
-    }
+    public String getContent() { return content; }
+    public void setContent(String content) { this.content = content; }
 
-    public void setUserReceiver(User userReceiver) {
-        this.userReceiver = userReceiver;
-    }
-
-    public String getText() {
-        return text;
-    }
-
-    public void setText(String text) {
-        this.text = text;
-    }
-
-    public LocalDateTime getSendedAt() {
-        return sendedAt;
-    }
-
-    public void setSendedAt(LocalDateTime sendedAt) {
-        this.sendedAt = sendedAt;
-    }
-
+    public String getSentDate() { return sentDate; }
+    public void setSentDate(String sentDate) { this.sentDate = sentDate; }
 }

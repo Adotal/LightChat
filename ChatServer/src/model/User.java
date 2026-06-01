@@ -2,72 +2,48 @@ package model;
 
 /**
  *
- * @author adotal
+ * @author adotal 
+ * @author Kosey
  */
+
 public class User {
-
-    private int id;
-    private String userName;
+    private int idUser;
+    private String name;
     private String email;
-    private boolean isConnected;
     private String password;
+    private String state;
+    private String lastAccess;
 
-    public User() {
-        id = 0;
-        userName = "";
-        email = "";
-        isConnected = false;
+    public User() {}
 
-    }
-
-    public User(int id, String userName, String email, boolean isConnected) {
-        this.id = id;
-        this.userName = userName;
+    public User(int idUser, String name, String email, String password, String state, String lastAccess) {
+        this.idUser = idUser;
+        this.name = name;
         this.email = email;
-        this.isConnected = isConnected;
-    }
-
-    public int getId() {
-        return id;
-    }
-
-    public void setId(int id) {
-        this.id = id;
-    }
-
-    public String getUserName() {
-        return userName;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setUserName(String userName) {
-        this.userName = userName;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public boolean isIsConnected() {
-        return isConnected;
-    }
-
-    public void setIsConnected(boolean isConnected) {
-        this.isConnected = isConnected;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
         this.password = password;
+        this.state = state;
+        this.lastAccess = lastAccess;
     }
 
-    @Override
+    public int getIdUser() { return idUser; }
+    public void setIdUser(int idUser) { this.idUser = idUser; }
+
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
+
+    public String getState() { return state; }
+    public void setState(String state) { this.state = state; }
+
+    public String getLastAccess() { return lastAccess; }
+    public void setLastAccess(String lastAccess) { this.lastAccess = lastAccess; }
+     
+        @Override
     public String toString() {        
         return "Username: " + userName + " Email: " + email + " IsConnected: " + isConnected;
     }
