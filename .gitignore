@@ -33,3 +33,6 @@ desktop.ini
 *.log
 *.tmp
 *.bak
+
+# Server secrets
+ChatServer/.env
