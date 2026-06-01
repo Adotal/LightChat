@@ -38,7 +38,6 @@ public class LoginView extends JFrame {
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 1.0;
 
-    
         JLabel lblTitulo = new JLabel("<html><div style='text-align:center;'>Inicia<br>sesión</div></html>");
         lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 36));
         lblTitulo.setForeground(Color.WHITE);
@@ -48,7 +47,6 @@ public class LoginView extends JFrame {
         gbc.insets = new Insets(20, 0, 55, 0);
         panelPrincipal.add(lblTitulo, gbc);
 
-     
         JLabel lblEmail = crearLabelCampo("EMAIL");
         gbc.gridy = 1;
         gbc.insets = new Insets(0, 4, 8, 4);
@@ -69,7 +67,7 @@ public class LoginView extends JFrame {
         gbc.insets = new Insets(0, 0, 60, 0);
         panelPrincipal.add(txtPassword, gbc);
 
-       //BOTON DE INICIAR SESION
+        //BOTON DE INICIAR SESION
         btnLogin = new JButton("Log in") {
             @Override
             protected void paintComponent(Graphics g) {
@@ -103,6 +101,25 @@ public class LoginView extends JFrame {
         gbc.insets = new Insets(0, 0, 35, 0);
         panelPrincipal.add(btnLogin, gbc);
 
+        // REGISTRAR
+        lblIrARegistro = new JLabel("<html><span style='color:#8095FF; font-weight:bold; text-decoration:underline;'>Registrar</span></html>");
+
+        lblIrARegistro.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        lblIrARegistro.setForeground(new Color(150, 160, 190));
+        lblIrARegistro.setHorizontalAlignment(SwingConstants.CENTER);
+        lblIrARegistro.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        lblIrARegistro.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                new SignUpView().setVisible(true); // Abre la pantalla de recuperación
+                dispose();                                 // Cierra el Login
+            }
+        });
+        gbc.gridy = 6;
+        gbc.insets = new Insets(5, 0, 0, 0);
+        panelPrincipal.add(lblIrARegistro, gbc);
+
         // RECUPERAR CONTRASEÑA 
         JLabel lblIrARecuperar = new JLabel(
                 "<html>¿Olvidaste tu contraseña? Haz "
@@ -120,8 +137,8 @@ public class LoginView extends JFrame {
             }
         });
 
-        gbc.gridy = 6;
-        gbc.insets = new Insets(5, 0, 0, 0);
+        gbc.gridy = 7;
+        gbc.insets = new Insets(20, 0, 0, 0);
         panelPrincipal.add(lblIrARecuperar, gbc);
 
         add(panelPrincipal);
@@ -179,10 +196,21 @@ public class LoginView extends JFrame {
     }
 
     // Getters públicos
-    public JTextField getTxtEmail() { return txtEmail; }
-    public JPasswordField getTxtPassword() { return txtPassword; }
-    public JButton getBtnLogin() { return btnLogin; }
-    public JLabel getLblIrARegistro() { return lblIrARegistro; }
+    public JTextField getTxtEmail() {
+        return txtEmail;
+    }
+
+    public JPasswordField getTxtPassword() {
+        return txtPassword;
+    }
+
+    public JButton getBtnLogin() {
+        return btnLogin;
+    }
+
+    public JLabel getLblIrARegistro() {
+        return lblIrARegistro;
+    }
 
     public static void main(String[] args) {
         try {
@@ -192,7 +220,8 @@ public class LoginView extends JFrame {
                     break;
                 }
             }
-        } catch (Exception e) {}
+        } catch (Exception e) {
+        }
 
         EventQueue.invokeLater(() -> {
             new LoginView().setVisible(true);
