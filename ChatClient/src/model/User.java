@@ -5,11 +5,12 @@ package model;
  * @author adotal
  */
 public class User {
-    
+
     private int id;
     private String userName;
     private String email;
     private boolean isConnected;
+    private String password;
 
     public User() {
         id = 0;
@@ -24,7 +25,7 @@ public class User {
         this.userName = userName;
         this.email = email;
         this.isConnected = isConnected;
-    }        
+    }
 
     public int getId() {
         return id;
@@ -33,6 +34,7 @@ public class User {
     public void setId(int id) {
         this.id = id;
     }
+
     public String getUserName() {
         return userName;
     }
@@ -47,14 +49,22 @@ public class User {
 
     public void setEmail(String email) {
         this.email = email;
-    }    
+    }
+
     public boolean isIsConnected() {
         return isConnected;
     }
 
     public void setIsConnected(boolean isConnected) {
         this.isConnected = isConnected;
-    }    
+    }
 
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
 
 }
