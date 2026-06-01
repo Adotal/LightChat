@@ -4,6 +4,7 @@ import dao.MessageDAO;
 import dao.UserDAO;
 import model.Message;
 import model.User;
+import server.JavaServer;
 
 
 /**
@@ -40,6 +41,10 @@ public class ChatServer {
             User uTemp = userDAO.getUserById(m.getIdSender());
             System.out.println(uTemp.getName() + ": '" + m.getContent() + "' el " + m.getSentDate());
         }
+        
+        JavaServer server;
+        server = new JavaServer();
+        server.beginServer();
     }
 
 }

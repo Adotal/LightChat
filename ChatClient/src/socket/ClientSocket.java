@@ -62,7 +62,7 @@ public class ClientSocket {
                 try {
                     attempt++;
                     clientSocket = new Socket(host, port);
-                    updateStatus("Conectado!");
+                    updateStatus("Conectado");
                     return; 
                 } catch (IOException ex) {
                     updateStatus("Intento " + attempt + " fallido. Reintentando...");

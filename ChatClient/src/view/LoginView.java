@@ -243,10 +243,10 @@ public class LoginView extends JFrame {
         // Get the global (singleton) instance
         ClientSocket client = ClientSocket.getInstance();
 
-        // 2. Tell the client to send updates to this frame's label
+        // Tell the client to send updates to this frame's label
         client.setStatusListener(mensaje -> lblConStatus.setText(mensaje));
 
-        // 3. Connect!
+        // Connect
         client.tryConnect();
     }
 }
