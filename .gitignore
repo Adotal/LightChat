@@ -40,3 +40,6 @@ desktop.ini
 
 # Server secrets
 ChatServer/.env
+
+# Do not exclude lib/ (contains mysql-connector)
+!lib/*
