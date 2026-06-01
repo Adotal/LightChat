@@ -42,6 +42,7 @@ public class ChatServer {
             System.out.println(uTemp.getName() + ": '" + m.getContent() + "' el " + m.getSentDate());
         }
         
+        // Start server
         JavaServer server;
         server = new JavaServer();
         server.beginServer();
