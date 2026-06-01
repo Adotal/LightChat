@@ -24,10 +24,10 @@ public class ChatView extends JFrame {
     private JPanel panelInput;
     private JTextField txtMensaje;
     private JButton btnEnviar;
+    private JButton btnVolver; // Nuevo botón de navegación
     private JLabel lblStatusCircle;
     private JLabel lblUserName;
 
-   
     private User currentUser;       // remitente
     private User receiverUser;      // destinatario
     private Chat chatActual;
@@ -49,8 +49,39 @@ public class ChatView extends JFrame {
         setLocationRelativeTo(null);
         getContentPane().setLayout(new BorderLayout());
 
-      
+        // Header con FlowLayout alineado a la izquierda
         panelHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 15));
+        
+        // BOTÓN VOLVER: Dibujado mediante vectores de Graphics2D (<)
+        btnVolver = new JButton() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                
+                // Dibuja la flecha de regreso estilizada <
+                g2.drawLine(16, 6, 8, 12);
+                g2.drawLine(8, 12, 16, 18);
+                g2.dispose();
+            }
+        };
+        btnVolver.setPreferredSize(new Dimension(24, 24));
+        btnVolver.setContentAreaFilled(false);
+        btnVolver.setBorderPainted(false);
+        btnVolver.setFocusPainted(false);
+        btnVolver.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        // NAVEGACIÓN: Regresar a UsersListView
+        btnVolver.addActionListener(e -> {
+            try {
+                new UsersListView().setVisible(true);
+                dispose();
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "UsersListView no encontrada.");
+            }
+        });
         
         // ESTADO DEL USUARIO
         lblStatusCircle = new JLabel() {
@@ -78,14 +109,16 @@ public class ChatView extends JFrame {
         lblUserName.setFont(new Font("Segoe UI", Font.BOLD, 16));
         lblUserName.setForeground(Color.WHITE);
 
+        // Agregamos primero el botón de volver en el extremo izquierdo
+        panelHeader.add(btnVolver);
         panelHeader.add(lblStatusCircle);
         panelHeader.add(lblUserName);
         
-        // linea que separa la info del user
+        // línea que separa la info del user
         JPanel headerContainer = new JPanel(new BorderLayout());
         headerContainer.add(panelHeader, BorderLayout.CENTER);
         JSeparator separator = new JSeparator();
-        separator.setForeground(new Color(255, 255, 255, 80));
+        separator.setForeground(new Color(255, 255, 255, 30)); // Bajado un poco el alpha para que sea sutil
         headerContainer.add(separator, BorderLayout.SOUTH);
         
         getContentPane().add(headerContainer, BorderLayout.NORTH);
@@ -102,12 +135,10 @@ public class ChatView extends JFrame {
 
         getContentPane().add(scrollChat, BorderLayout.CENTER);
 
-       
         // Contenedor para ingresar el texto y el vector de enviar
         JPanel panelSouthContainer = new JPanel(new BorderLayout());
         panelSouthContainer.setBorder(new EmptyBorder(15, 15, 15, 15));
 
-        
         panelInput = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -127,7 +158,7 @@ public class ChatView extends JFrame {
         txtMensaje.setBorder(null);
         txtMensaje.setOpaque(false);
 
-        // Evento
+        // Evento focus placeholders
         txtMensaje.addFocusListener(new java.awt.event.FocusAdapter() {
             public void focusGained(java.awt.event.FocusEvent evt) {
                 if (txtMensaje.getText().equals("Ingresa un mensaje")) {
@@ -184,7 +215,6 @@ public class ChatView extends JFrame {
         txtMensaje.addActionListener(enviarAction); // Enviar al presionar enter
     }
 
-   
     private void configurarEstilos() {
         Color fondoOscuroPrincipal = new Color(7, 16, 51);
         
@@ -211,21 +241,19 @@ public class ChatView extends JFrame {
         }
     }
 
-    //Si mula resuesta 
+    //Simula respuesta 
     private void procesarMensajeEnviado() {
         String texto = txtMensaje.getText().trim();
         if (texto.isEmpty() || texto.equals("Ingresa un mensaje")) {
             return;
         }
 
-     //pojo mensaje de remitente 
+        //pojo mensaje de remitente 
         Message mensajeMio = new Message(currentUser, receiverUser, texto, LocalDateTime.now());
         chatActual.getMessages().add(mensajeMio);
 
-       
         agregarBurbujaMensaje(mensajeMio, true);
         
-       
         txtMensaje.setText("");
         txtMensaje.requestFocus();
 
@@ -236,7 +264,6 @@ public class ChatView extends JFrame {
                 Message mensajeEco = new Message(receiverUser, currentUser, " " + mensajeMio.getText(), LocalDateTime.now());
                 chatActual.getMessages().add(mensajeEco);
                 
-               
                 agregarBurbujaMensaje(mensajeEco, false);
             }
         });
@@ -244,7 +271,6 @@ public class ChatView extends JFrame {
         timerEco.start();
     }
 
-    
     private void agregarBurbujaMensaje(Message msg, boolean esMio) {
         
         JPanel filaPanel = new JPanel(new GridBagLayout());
@@ -259,7 +285,6 @@ public class ChatView extends JFrame {
         gbc.anchor = esMio ? GridBagConstraints.EAST : GridBagConstraints.WEST;
         gbc.fill = GridBagConstraints.NONE;
 
-        
         JPanel burbuja = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -286,7 +311,6 @@ public class ChatView extends JFrame {
 
         filaPanel.add(burbuja, gbc);
 
-      
         panelHistorialMensajes.add(filaPanel);
         panelHistorialMensajes.revalidate();
         panelHistorialMensajes.repaint();
@@ -298,9 +322,6 @@ public class ChatView extends JFrame {
         });
     }
 
-    
-      //Ejecutable
-    
     public static void main(String args[]) {
         try {
             for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
