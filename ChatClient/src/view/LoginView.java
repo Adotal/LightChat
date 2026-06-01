@@ -75,7 +75,7 @@ public class LoginView extends JFrame {
         gbc.insets = new Insets(0, 4, 8, 4);
         panelPrincipal.add(lblPass, gbc);
 
-        txtPassword = crearCampoPassword("******");
+        txtPassword = crearCampoPassword("12345");
         gbc.gridy = 5;
         gbc.insets = new Insets(0, 0, 60, 0);
         panelPrincipal.add(txtPassword, gbc);
@@ -126,12 +126,9 @@ public class LoginView extends JFrame {
 
                     // 4. Enviar el JSON al servidor (asumiendo que tu ClientSocket tiene el método sendText)
                     ClientSocket.getInstance().sendText(jsonString);
-
-                    // NOTA: Idealmente, aquí no deberías abrir UsersListView inmediatamente. 
-                    // Deberías esperar a que el servidor responda "LOGIN_EXITOSO" antes de hacer esto,
-                    // pero por ahora lo dejaremos como lo tenías para no romper tu flujo:
-                    new UsersListView().setVisible(true);
-                    dispose();
+                    
+//                    new UsersListView().setVisible(true);
+//                    dispose();
 
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(this, "Error al enviar solicitud: " + ex.getMessage());

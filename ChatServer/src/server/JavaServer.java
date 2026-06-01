@@ -64,8 +64,7 @@ public class JavaServer {
     }
 
     public synchronized void writeConsole(String s) {
-
-        System.out.println(s + "\n");        
+        System.out.println(s);        
     }
     
     public void removeClient(int idClient){
