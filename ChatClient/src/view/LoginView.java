@@ -58,7 +58,7 @@ public class LoginView extends JFrame {
                 String password = new String(passField.getPassword());
 
                 // Replace this block with your actual authentication logic
-                if (username.equals("admin") && password.equals("password123")) {
+                if (username.equals("admin") && password.equals("1234")) {
                     JOptionPane.showMessageDialog(getContentPane(), "Login Successful!", "Success", JOptionPane.INFORMATION_MESSAGE);
                 } else {
                     JOptionPane.showMessageDialog(getContentPane(), "Invalid username or password.", "Error", JOptionPane.ERROR_MESSAGE);

@@ -15,8 +15,6 @@ public class ChatClient {
         
         LoginView loginView = new LoginView();
         loginView.setVisible(true);
-        
-        System.out.println("Hello World");
     }
     
 }
