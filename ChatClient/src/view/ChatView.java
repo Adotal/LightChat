@@ -33,6 +33,7 @@ public class ChatView extends JFrame {
     private Chat chatActual;
 
     public ChatView() {
+        super();
         initComponents();
         initDataMock(); // ESO ES PARA LAS PRUEBAS 
         configurarEstilos();

@@ -1,5 +1,7 @@
 package chatclient;
 
+import view.LoginView;
+
 /**
  * @author adotal
  * 
@@ -11,7 +13,8 @@ public class ChatClient {
      */
     public static void main(String[] args) {
         
-        System.out.println("Hello World");
+        LoginView loginView = new LoginView();
+        loginView.setVisible(true);
     }
     
 }

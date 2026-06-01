@@ -1,13 +1,11 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package model;
 
 /**
  *
+ * @author adotal 
  * @author Kosey
  */
+
 public class User {
     private int idUser;
     private String name;
@@ -44,4 +42,9 @@ public class User {
 
     public String getLastAccess() { return lastAccess; }
     public void setLastAccess(String lastAccess) { this.lastAccess = lastAccess; }
+     
+        @Override
+    public String toString() {        
+        return "Username: " + name + " Email: " + email + " satate: " + state;
+    }
 }

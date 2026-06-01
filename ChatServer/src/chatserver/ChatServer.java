@@ -8,7 +8,7 @@ import model.User;
 
 /**
  * @author adotal
- * 
+ *
  */
 public class ChatServer {
 
@@ -41,5 +41,5 @@ public class ChatServer {
             System.out.println(uTemp.getName() + ": '" + m.getContent() + "' el " + m.getSentDate());
         }
     }
-    
+
 }
