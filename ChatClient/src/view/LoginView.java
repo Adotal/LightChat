@@ -12,6 +12,7 @@ import socket.ClientSocket;
 
 /**
  * @author alond
+ * @author adotal
  */
 public class LoginView extends JFrame {
 
@@ -21,6 +22,8 @@ public class LoginView extends JFrame {
     private JButton btnLogin;
     private JLabel lblIrARegistro;
     private JLabel lblConStatus;
+    
+    private int errorCount = 0;
 
     public LoginView() {
         initComponents();
@@ -65,7 +68,7 @@ public class LoginView extends JFrame {
         gbc.insets = new Insets(0, 4, 8, 4);
         panelPrincipal.add(lblEmail, gbc);
 
-        txtEmail = crearCampoTexto("hello@reallygreatsite.com");
+        txtEmail = crearCampoTexto("adotal1484@gmai.com");
         gbc.gridy = 3;
         gbc.insets = new Insets(0, 0, 24, 0);
         panelPrincipal.add(txtEmail, gbc);
@@ -75,7 +78,7 @@ public class LoginView extends JFrame {
         gbc.insets = new Insets(0, 4, 8, 4);
         panelPrincipal.add(lblPass, gbc);
 
-        txtPassword = crearCampoPassword("12345");
+        txtPassword = crearCampoPassword("1234");
         gbc.gridy = 5;
         gbc.insets = new Insets(0, 0, 60, 0);
         panelPrincipal.add(txtPassword, gbc);
@@ -113,8 +116,7 @@ public class LoginView extends JFrame {
                     JOptionPane.showMessageDialog(this, "Por favor llena ambos campos.");
                     return;
                 }
-                
-                
+                                
                 // Send login request
                 try {
                     // Create object from data
@@ -124,18 +126,21 @@ public class LoginView extends JFrame {
                     ObjectMapper mapper = new ObjectMapper();
                     String jsonString = mapper.writeValueAsString(request);
 
-                    // 4. Enviar el JSON al servidor (asumiendo que tu ClientSocket tiene el método sendText)
+                    // Enviar el JSON al servidor
                     ClientSocket.getInstance().sendText(jsonString);
                     
+                    // On login succes
 //                    new UsersListView().setVisible(true);
 //                    dispose();
+
+                    // On login failure                    
+//                    JOptionPane.showMessageDialog(this, "Error en login: Credenciales inválidas");
+//                    ++errorCount;
 
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(this, "Error al enviar solicitud: " + ex.getMessage());
                     ex.printStackTrace();
                 }
-//                new UsersListView().setVisible(true);
-//                dispose();
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "UsersListView no encontrada.");
             }
@@ -278,6 +283,34 @@ public class LoginView extends JFrame {
 
         // Tell the client to send updates to this frame's label
         client.setStatusListener(mensaje -> lblConStatus.setText(mensaje));
+        
+        // Server responess Mapping
+        client.setMessageListener(rawJson -> {
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                com.fasterxml.jackson.databind.JsonNode rootNode = mapper.readTree(rawJson);
+
+                if (rootNode.has("type")) {
+                    String tipo = rootNode.get("type").asText();
+
+                    if (tipo.equals("LOGIN_SUCCESS")) {
+                        // On Login success, open the list view and close login window
+                        new UsersListView().setVisible(true);
+                        this.dispose(); 
+                        
+                    } else if (tipo.equals("LOGIN_ERROR")) {
+                        // Extract custom error message from server if it exists
+                        String errorMsg = rootNode.has("message") ? rootNode.get("message").asText() : "Credenciales inválidas";
+                        
+                        // On Login failure, display dialog cleanly
+                        JOptionPane.showMessageDialog(this, "Error en login: " + errorMsg, "Error de acceso", JOptionPane.ERROR_MESSAGE);
+                        ++errorCount;
+                    }
+                }
+            } catch (Exception ex) {
+                System.err.println("Error procesando respuesta del servidor: " + ex.getMessage());
+            }
+        });
 
         // Connect
         client.tryConnect();

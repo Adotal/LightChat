@@ -105,7 +105,7 @@ public class ClientThread implements Runnable {
     public void run() {
 
         String ip = client.getRemoteSocketAddress().toString();
-        server.writeConsole("[Cliente #" + clientId + "] conectado desde " + ip);
+        server.writeConsole("[Cliente #" + clientId + "] CONNECTED from " + ip);
 
         ObjectMapper mapper = new ObjectMapper();
 
@@ -135,19 +135,19 @@ public class ClientThread implements Runnable {
                             String emailReq = rootNode.get("email").asText();
                             String passReq = rootNode.get("password").asText();
 
-                            server.writeConsole("[Cliente #" + clientId + "] LOGIN REQUEST: Email: " + emailReq);
+                            server.writeConsole("[Cliente #" + clientId + "] LOGIN REQUEST: Email: " + emailReq + " Password: " + passReq);
 
                             // Retrieve and verify from DB
                             UserDAO userDAO = new UserDAO();
                             User retrievedUser = userDAO.getUserByEmail(emailReq);
 
-                            // 3. Validar y responder al cliente
+                            // Validar y responder al cliente
                             if (retrievedUser != null && retrievedUser.getPassword().equals(passReq)) {
-                                server.writeConsole(">> Login exitoso para " + emailReq);
+                                server.writeConsole("[Cliente #" + clientId + "] LOGIN SUCCESS: For " + emailReq);
                                 // Respuesta al cliente (el println agrega automáticamente el \n)
                                 out.println("{\"type\": \"LOGIN_SUCCESS\", \"message\": \"Bienvenido\"}");
                             } else {
-                                server.writeConsole(">> Login denegado para " + emailReq);
+                                server.writeConsole("[Cliente #" + clientId + "] LOGIN FAILURE: For " + emailReq);
                                 out.println("{\"type\": \"LOGIN_ERROR\", \"message\": \"Credenciales incorrectas\"}");
                             }
                         }

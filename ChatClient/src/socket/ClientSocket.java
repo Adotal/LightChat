@@ -1,5 +1,6 @@
 package socket;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -7,8 +8,8 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.function.Consumer;
+import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
-
 
 /**
  *
@@ -18,7 +19,7 @@ import javax.swing.SwingUtilities;
 /*
     This Singleton mantains the connection with Server through websocket
     And Safely update UI with a Consumer
-*/
+ */
 public class ClientSocket {
 
     //  The single, static instance of the class
@@ -27,10 +28,10 @@ public class ClientSocket {
     private final String host = "127.0.0.1";
     private final int port = 1235;
     private Socket clientSocket;
-    
+
     // The active listener for UI updates
     private Consumer<String> onStatusUpdate;
-    
+
     // The active listener to process incoming JSON messages from the server
     private Consumer<String> onMessageReceived;
 
@@ -45,7 +46,7 @@ public class ClientSocket {
         }
         return instance;
     }
-    
+
     // Allow the active JFrame to intercept JSON responses from the server
     public void setMessageListener(Consumer<String> listener) {
         this.onMessageReceived = listener;
@@ -75,7 +76,7 @@ public class ClientSocket {
                     updateStatus("Conectado");
                     // Se mantiene a la escucha
                     listen();
-                    return; 
+                    return;
                 } catch (IOException ex) {
                     updateStatus("Intento " + attempt + " fallido. Reintentando...");
                     try {
@@ -95,6 +96,7 @@ public class ClientSocket {
      * las respuestas del servidor que finalizan con un salto de línea (\n).
      */
     private void listen() {
+        ObjectMapper mapper = new ObjectMapper();
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(clientSocket.getInputStream(), StandardCharsets.UTF_8))) {
 
@@ -103,11 +105,13 @@ public class ClientSocket {
             while ((receivedLine = reader.readLine()) != null) {
                 System.out.println("\n[Socket] Recibido desde Servidor: " + receivedLine);
 
-                // Si hay una interfaz escuchando, le transferimos el mensaje de forma segura para Swing
+                // Forward the raw JSON string straight to the active View 
+                // using SwingUtilities to prevent multi-threading crashes.
                 if (onMessageReceived != null) {
                     final String rawJson = receivedLine;
                     SwingUtilities.invokeLater(() -> onMessageReceived.accept(rawJson));
                 }
+
             }
         } catch (IOException e) {
             System.err.println("\nConexión perdida con el servidor: " + e.getMessage());
@@ -116,29 +120,30 @@ public class ClientSocket {
             updateStatus("Desconectado");
         }
     }
-    
+
     public void sendText(String s) {
         if (clientSocket != null && clientSocket.isConnected() && !clientSocket.isClosed()) {
             try {
                 OutputStream out = clientSocket.getOutputStream();
-                
+
                 // "\n" para indicar el fin del JSON
                 String mensajeConSalto = s + "\n";
-                
+
                 out.write(mensajeConSalto.getBytes(StandardCharsets.UTF_8));
-                out.flush(); 
+                out.flush();
                 System.out.print("Enviado: " + s);
             } catch (IOException ex) {
                 System.err.println("Error al enviar: " + ex.getMessage());
             }
         }
     }
-    
+
     private void updateStatus(String message) {
         if (onStatusUpdate != null) {
             SwingUtilities.invokeLater(() -> onStatusUpdate.accept(message));
         }
     }
+
     private void closeSocket() {
         try {
             if (clientSocket != null && !clientSocket.isClosed()) {

@@ -69,7 +69,7 @@ public class JavaServer {
     
     public void removeClient(int idClient){
         activeClients.remove(idClient);
-        writeConsole("Cliente #" + idClient + " se ha desconectado");
+        writeConsole("[Cliente #" + idClient + "] DISCONNECTED");
                 
     }
 
