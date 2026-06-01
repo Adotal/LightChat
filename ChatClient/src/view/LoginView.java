@@ -1,11 +1,13 @@
 package view;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import model.LoginRequest;
 import socket.ClientSocket;
 
 /**
@@ -101,8 +103,42 @@ public class LoginView extends JFrame {
 
         btnLogin.addActionListener(e -> {
             try {
-                new UsersListView().setVisible(true);
-                dispose();
+                
+                // Get data from textFields
+                String email = txtEmail.getText();
+                // getPassword() returns char[], parse to String
+                String password = new String(txtPassword.getPassword());
+
+                if (email.isEmpty() || password.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Por favor llena ambos campos.");
+                    return;
+                }
+                
+                
+                // Send login request
+                try {
+                    // Create object from data
+                    LoginRequest request = new LoginRequest(email, password);
+
+                    // Convert object to JSON usign Jackson
+                    ObjectMapper mapper = new ObjectMapper();
+                    String jsonString = mapper.writeValueAsString(request);
+
+                    // 4. Enviar el JSON al servidor (asumiendo que tu ClientSocket tiene el método sendText)
+                    ClientSocket.getInstance().sendText(jsonString);
+
+                    // NOTA: Idealmente, aquí no deberías abrir UsersListView inmediatamente. 
+                    // Deberías esperar a que el servidor responda "LOGIN_EXITOSO" antes de hacer esto,
+                    // pero por ahora lo dejaremos como lo tenías para no romper tu flujo:
+                    new UsersListView().setVisible(true);
+                    dispose();
+
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this, "Error al enviar solicitud: " + ex.getMessage());
+                    ex.printStackTrace();
+                }
+//                new UsersListView().setVisible(true);
+//                dispose();
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "UsersListView no encontrada.");
             }
