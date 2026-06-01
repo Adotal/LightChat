@@ -6,6 +6,7 @@ import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import socket.ClientSocket;
 
 /**
  * @author alond
@@ -17,9 +18,11 @@ public class LoginView extends JFrame {
     private JPasswordField txtPassword;
     private JButton btnLogin;
     private JLabel lblIrARegistro;
+    private JLabel lblConStatus;
 
     public LoginView() {
         initComponents();
+        initSocket();
     }
 
     private void initComponents() {
@@ -37,33 +40,41 @@ public class LoginView extends JFrame {
         gbc.gridx = 0;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 1.0;
+        
+        lblConStatus = new JLabel("<html><div style='text-align:center;'>Conectando...</div></html>");        
+        lblConStatus.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        lblConStatus.setForeground(Color.WHITE);
+        lblConStatus.setHorizontalAlignment(SwingConstants.CENTER);        
+        gbc.gridy = 0;
+        gbc.insets = new Insets(0, 0, 100, 0);
+        panelPrincipal.add(lblConStatus, gbc);
 
         JLabel lblTitulo = new JLabel("<html><div style='text-align:center;'>Inicia<br>sesión</div></html>");
         lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 36));
         lblTitulo.setForeground(Color.WHITE);
         lblTitulo.setHorizontalAlignment(SwingConstants.CENTER);
 
-        gbc.gridy = 0;
+        gbc.gridy = 1;
         gbc.insets = new Insets(20, 0, 55, 0);
         panelPrincipal.add(lblTitulo, gbc);
 
         JLabel lblEmail = crearLabelCampo("EMAIL");
-        gbc.gridy = 1;
+        gbc.gridy = 2;
         gbc.insets = new Insets(0, 4, 8, 4);
         panelPrincipal.add(lblEmail, gbc);
 
         txtEmail = crearCampoTexto("hello@reallygreatsite.com");
-        gbc.gridy = 2;
+        gbc.gridy = 3;
         gbc.insets = new Insets(0, 0, 24, 0);
         panelPrincipal.add(txtEmail, gbc);
 
         JLabel lblPass = crearLabelCampo("PASSWORD");
-        gbc.gridy = 3;
+        gbc.gridy = 4;
         gbc.insets = new Insets(0, 4, 8, 4);
         panelPrincipal.add(lblPass, gbc);
 
         txtPassword = crearCampoPassword("******");
-        gbc.gridy = 4;
+        gbc.gridy = 5;
         gbc.insets = new Insets(0, 0, 60, 0);
         panelPrincipal.add(txtPassword, gbc);
 
@@ -97,8 +108,8 @@ public class LoginView extends JFrame {
             }
         });
 
-        gbc.gridy = 5;
-        gbc.insets = new Insets(0, 0, 35, 0);
+        gbc.gridy = 6;
+        gbc.insets = new Insets(5, 0, 35, 0);
         panelPrincipal.add(btnLogin, gbc);
 
         // REGISTRAR
@@ -116,7 +127,7 @@ public class LoginView extends JFrame {
                 dispose();                                 // Cierra el Login
             }
         });
-        gbc.gridy = 6;
+        gbc.gridy = 7;
         gbc.insets = new Insets(5, 0, 0, 0);
         panelPrincipal.add(lblIrARegistro, gbc);
 
@@ -137,7 +148,7 @@ public class LoginView extends JFrame {
             }
         });
 
-        gbc.gridy = 7;
+        gbc.gridy = 8;
         gbc.insets = new Insets(20, 0, 0, 0);
         panelPrincipal.add(lblIrARecuperar, gbc);
 
@@ -226,5 +237,16 @@ public class LoginView extends JFrame {
         EventQueue.invokeLater(() -> {
             new LoginView().setVisible(true);
         });
+    }
+
+    private void initSocket() {
+        // Get the global (singleton) instance
+        ClientSocket client = ClientSocket.getInstance();
+
+        // 2. Tell the client to send updates to this frame's label
+        client.setStatusListener(mensaje -> lblConStatus.setText(mensaje));
+
+        // 3. Connect!
+        client.tryConnect();
     }
 }
