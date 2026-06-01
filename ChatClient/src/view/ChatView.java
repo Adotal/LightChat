@@ -158,6 +158,13 @@ public class ChatView extends JFrame {
         txtMensaje.setBorder(null);
         txtMensaje.setOpaque(false);
 
+        // Nimbus ignora setOpaque(false) en JTextField; se anulan sus painters de fondo
+        UIDefaults sinFondo = new UIDefaults();
+        sinFondo.put("TextField[Enabled].backgroundPainter", (javax.swing.Painter<JComponent>) (g, c, w, h) -> {});
+        sinFondo.put("TextField[Focused].backgroundPainter", (javax.swing.Painter<JComponent>) (g, c, w, h) -> {});
+        txtMensaje.putClientProperty("Nimbus.Overrides", sinFondo);
+        txtMensaje.putClientProperty("Nimbus.Overrides.InheritDefaults", false);
+
         // Evento focus placeholders
         txtMensaje.addFocusListener(new java.awt.event.FocusAdapter() {
             public void focusGained(java.awt.event.FocusEvent evt) {
