@@ -65,10 +65,11 @@ public class ClientSocket {
         }
 
         new Thread(() -> {
-            int maxRetries = 10;
+            int maxRetries = 100000000;
             int delayMillis = 2000;
             int attempt = 0;
 
+            // Tries to connect undefinetly
             while (attempt < maxRetries) {
                 try {
                     attempt++;
