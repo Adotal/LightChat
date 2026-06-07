@@ -14,7 +14,10 @@ git pull
 echo "==> Recompilando ChatServer..."
 cd ChatServer
 # El proyecto NetBeans espera una plataforma llamada JDK_21; le pasamos la ruta.
-ant -Dplatforms.JDK_21.home=/usr/lib/jvm/java-21-openjdk-amd64 clean jar
+# Autodetectamos la carpeta del JDK por si Ubuntu cambia la versión exacta.
+JDK_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"
+echo "    Usando JDK: $JDK_HOME"
+ant -Dplatforms.JDK_21.home="$JDK_HOME" clean jar
 
 echo "==> Reiniciando el servicio..."
 sudo systemctl restart chatserver
