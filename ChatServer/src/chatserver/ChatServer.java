@@ -17,6 +17,12 @@ public class ChatServer {
      * @param args the command line arguments
      */
     public static void main(String[] args) {
+                      
+        // Start server
+        JavaServer server;
+        server = new JavaServer();
+        server.beginServer();
+                        
         UserDAO userDAO = new UserDAO();
 
         /*// Insertar usuario
@@ -42,10 +48,6 @@ public class ChatServer {
             System.out.println(uTemp.getName() + ": '" + m.getContent() + "' el " + m.getSentDate());
         }
         
-        // Start server
-        JavaServer server;
-        server = new JavaServer();
-        server.beginServer();
     }
 
 }

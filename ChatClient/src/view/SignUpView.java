@@ -15,6 +15,7 @@ public class SignUpView extends JFrame {
     private JLabel lblIrALogin;
 
     public SignUpView() {
+        super();
         initComponents();
     }
 
