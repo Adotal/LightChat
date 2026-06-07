@@ -7,6 +7,8 @@ import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import model.SessionManager;
+import model.User;
 import model.dbrequest.LoginRequest;
 import socket.ClientSocket;
 
@@ -69,7 +71,7 @@ public class LoginView extends JFrame {
         gbc.insets = new Insets(0, 4, 8, 4);
         panelPrincipal.add(lblEmail, gbc);
 
-        txtEmail = crearCampoTexto("adotal1484@gmai.com");
+        txtEmail = crearCampoTexto("adotal1484@gmail.com");
         gbc.gridy = 3;
         gbc.insets = new Insets(0, 0, 24, 0);
         panelPrincipal.add(txtEmail, gbc);
@@ -289,6 +291,16 @@ public class LoginView extends JFrame {
                     String tipo = rootNode.get("type").asText();
 
                     if (tipo.equals("LOGIN_SUCCESS")) {
+
+                        // Check if the response contains the user sub-node
+                        if (rootNode.has("user")) {
+                            // Parse the sub-node directly into a User instance
+                            User loggedUser = mapper.treeToValue(rootNode.get("user"), User.class);
+
+                            // Save it inside your application's Singleton Session Manager
+                            SessionManager.getInstance().setCurrentUser(loggedUser);
+                        }
+
                         // On Login success, open the list view and close login window
                         new UsersListView().setVisible(true);
                         this.dispose();

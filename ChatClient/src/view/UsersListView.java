@@ -1,5 +1,7 @@
 package view;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -8,7 +10,10 @@ import java.awt.geom.RoundRectangle2D;
 import java.util.ArrayList;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import model.SessionManager;
 import model.User;
+import model.dbrequest.LoginRequest;
+import socket.ClientSocket;
 
 /**
  * @author alond
@@ -18,24 +23,25 @@ public class UsersListView extends JFrame {
     private JLayeredPane layeredPane;
     private JPanel panelBaseContenido;
     private JPanel panelHeaderTabs;
-    private JPanel panelListaContactos; 
+    private JPanel panelListaContactos;
     private JScrollPane scrollContactos;
     private JPanel panelNavigationBottom;
-    
+
     private JButton btnTabTodos;
     private JButton btnTabAmigos;
     private JButton btnTabGrupos;
-    
+
     private JButton btnNotificaciones;
     private JButton btnCerrarSesion;
 
     private ArrayList<User> listaUsuariosMock;
-    private ArrayList<Integer> listaIdAmigosMock; 
+    private ArrayList<Integer> listaIdAmigosMock;
     private String pestañaActiva = "TODOS";
 
     public UsersListView() {
         initComponents();
-        initDataMock(); 
+        initSocket();
+        loadData();
         configurarEstilos();
         cargarContenidoSegunPestaña();
     }
@@ -46,15 +52,15 @@ public class UsersListView extends JFrame {
         setSize(450, 650);
         setMinimumSize(new Dimension(380, 550));
         setLocationRelativeTo(null);
-        
+
         layeredPane = new JLayeredPane();
-        layeredPane.setLayout(null); 
+        layeredPane.setLayout(null);
         getContentPane().add(layeredPane, BorderLayout.CENTER);
 
         panelBaseContenido = new JPanel(new BorderLayout());
-        
+
         panelHeaderTabs = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
-        
+
         btnTabTodos = crearBotonPestaña("Todos", "TODOS");
         btnTabAmigos = crearBotonPestaña("Amigos", "AMIGOS");
         btnTabGrupos = crearBotonPestaña("Grupos", "GRUPOS");
@@ -68,11 +74,11 @@ public class UsersListView extends JFrame {
         JSeparator separator = new JSeparator();
         separator.setForeground(new Color(255, 255, 255, 30));
         headerContainer.add(separator, BorderLayout.SOUTH);
-        
+
         panelBaseContenido.add(headerContainer, BorderLayout.NORTH);
 
         panelListaContactos = new JPanel(new GridBagLayout());
-        panelListaContactos.setBorder(new EmptyBorder(5, 0, 80, 0)); 
+        panelListaContactos.setBorder(new EmptyBorder(5, 0, 80, 0));
 
         scrollContactos = new JScrollPane(panelListaContactos);
         scrollContactos.setBorder(null);
@@ -88,7 +94,7 @@ public class UsersListView extends JFrame {
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(20, 31, 66)); 
+                g2.setColor(new Color(20, 31, 66));
                 g2.fill(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 28, 28));
                 g2.dispose();
             }
@@ -134,12 +140,12 @@ public class UsersListView extends JFrame {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(Color.WHITE);
                 g2.setStroke(new BasicStroke(1.6f));
-                
+
                 g2.drawRoundRect(4, 4, 11, 16, 5, 5);
-                
+
                 g2.setColor(new Color(20, 31, 66));
                 g2.fillRect(14, 8, 3, 8);
-                
+
                 g2.setColor(Color.WHITE);
                 g2.drawLine(9, 12, 20, 12);
                 g2.drawLine(16, 8, 20, 12);
@@ -158,8 +164,17 @@ public class UsersListView extends JFrame {
             int respuesta = JOptionPane.showConfirmDialog(this, "¿Seguro de cerrar sesión?", "Cerrar Sesión", JOptionPane.YES_NO_OPTION);
             if (respuesta == JOptionPane.YES_OPTION) {
                 try {
-                    new LoginView().setVisible(true);
-                    dispose();
+
+                    // Build JSON using Jackson
+                    ObjectMapper mapper = new ObjectMapper();
+                    ObjectNode request = mapper.createObjectNode();
+                    request.put("type", "LOGOUT_REQUEST");
+                    request.put("email", SessionManager.getInstance().getCurrentUser().getEmail());
+                    String json = mapper.writeValueAsString(request);
+
+                    // Enviar el JSON al servidor
+                    ClientSocket.getInstance().sendText(json);
+
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(this, "LoginView no encontrada.");
                 }
@@ -185,68 +200,102 @@ public class UsersListView extends JFrame {
         panelBaseContenido.setBackground(fondoOscuroPrincipal);
     }
 
-    private void initDataMock() {
+    private void loadData() {
+        // Initialize arrays
         listaUsuariosMock = new ArrayList<>();
         listaIdAmigosMock = new ArrayList<>();
-        listaUsuariosMock.add(new User(1, "Anna", "anna@email.com", false));
-        listaUsuariosMock.add(new User(2, "Fernando", "fernando@email.com", false));
-        listaUsuariosMock.add(new User(3, "Damaris", "damaris@email.com", true));
-        listaUsuariosMock.add(new User(4, "Adro", "adro@email.com", false));
-        listaIdAmigosMock.add(1);
-        listaIdAmigosMock.add(3);
+
+        // Send fetch all users request
+        try {
+
+            // Build JSON using Jackson
+            ObjectMapper mapper = new ObjectMapper();
+            ObjectNode request = mapper.createObjectNode();
+            request.put("type", "FETCH_ALL_USERS");
+            request.put("id", SessionManager.getInstance().getCurrentUser().getIdUser());
+
+            String json = mapper.writeValueAsString(request);
+            // Enviar el JSON al servidor
+            ClientSocket.getInstance().sendText(json);
+
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Error al enviar solicitud: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+
+        // Fetch ALL Users
+//        listaUsuariosMock.add(new User(1, "Anna", "anna@email.com", false));
+//        listaUsuariosMock.add(new User(2, "Fernando", "fernando@email.com", false));
+//        listaUsuariosMock.add(new User(3, "Damaris", "damaris@email.com", true));
+//        listaUsuariosMock.add(new User(4, "Adro", "adro@email.com", false));
+//        listaIdAmigosMock.add(1);
+//        listaIdAmigosMock.add(3);
     }
 
     private void cargarContenidoSegunPestaña() {
         panelListaContactos.removeAll();
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0; gbc.gridy = 0; gbc.weightx = 1.0; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.anchor = GridBagConstraints.NORTH; 
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.weightx = 1.0;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.anchor = GridBagConstraints.NORTH;
 
         if (pestañaActiva.equals("GRUPOS")) {
-            panelListaContactos.add(crearFilaGrupo("Nombre del grupo 1"), gbc); gbc.gridy++;
-            panelListaContactos.add(crearFilaGrupo("Nombre del grupo 2"), gbc); gbc.gridy++;
+            panelListaContactos.add(crearFilaGrupo("Nombre del grupo 1"), gbc);
+            gbc.gridy++;
+            panelListaContactos.add(crearFilaGrupo("Nombre del grupo 2"), gbc);
+            gbc.gridy++;
         } else {
             for (User user : listaUsuariosMock) {
                 boolean esAmigo = listaIdAmigosMock.contains(user.getIdUser());
-                if (pestañaActiva.equals("AMIGOS") && !esAmigo) continue;
+                if (pestañaActiva.equals("AMIGOS") && !esAmigo) {
+                    continue;
+                }
                 panelListaContactos.add(crearFilaContacto(user, esAmigo), gbc);
                 gbc.gridy++;
             }
         }
-        
+
         gbc.weighty = 1.0;
-        JPanel empujador = new JPanel(); empujador.setOpaque(false);
+        JPanel empujador = new JPanel();
+        empujador.setOpaque(false);
         panelListaContactos.add(empujador, gbc);
-        panelListaContactos.revalidate(); panelListaContactos.repaint();
+        panelListaContactos.revalidate();
+        panelListaContactos.repaint();
     }
 
     private JPanel crearFilaContacto(User usuario, boolean esAmigoInitial) {
-        final String[] estado = { esAmigoInitial ? "AMIGO" : "NINGUNO" };
+        final String[] estado = {esAmigoInitial ? "AMIGO" : "NINGUNO"};
         JPanel fila = crearContenedorFila();
-        
+
         JLabel lblAvatar = new JLabel() {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(usuario.getIsConnected() ? new Color(37, 68, 196) : new Color(139, 162, 179));
-                g2.fill(new Ellipse2D.Double(0, 0, 32, 32)); 
+                g2.fill(new Ellipse2D.Double(0, 0, 32, 32));
                 g2.dispose();
             }
+
             @Override
-            public Dimension getPreferredSize() { return new Dimension(32, 32); }
+            public Dimension getPreferredSize() {
+                return new Dimension(32, 32);
+            }
         };
 
         JButton btnAccion = crearBotonAccionContacto(estado);
         JPanel textos = crearPanelTextos(usuario.getName(), "Ultimo mensaje");
-        
+
         JPanel content = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 11));
         content.setOpaque(false);
         content.add(lblAvatar);
         content.add(textos);
-        
+
         fila.add(content, BorderLayout.WEST);
         fila.add(btnAccion, BorderLayout.EAST);
-        
+
         configurarEventosHover(fila, btnAccion);
 
         // NAVEGACIÓN: Al hacer clic en cualquier parte de la fila del usuario, abre el ChatView
@@ -267,30 +316,33 @@ public class UsersListView extends JFrame {
 
     private JPanel crearFilaGrupo(String nombre) {
         JPanel fila = crearContenedorFila();
-        
+
         JLabel lblIcono = new JLabel() {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(112, 142, 255)); 
+                g2.setColor(new Color(112, 142, 255));
                 g2.setStroke(new BasicStroke(1.3f));
-                
-                g2.drawOval(0, 0, 31, 31); 
-                
-                g2.drawOval(11, 6, 8, 8); 
-                g2.drawArc(6, 15, 18, 11, 0, 180); 
-                
-                g2.drawOval(5, 10, 6, 6); 
-                g2.drawArc(1, 17, 13, 9, 0, 180); 
-                
-                g2.drawOval(19, 10, 6, 6); 
-                g2.drawArc(16, 17, 13, 9, 0, 180); 
-                
+
+                g2.drawOval(0, 0, 31, 31);
+
+                g2.drawOval(11, 6, 8, 8);
+                g2.drawArc(6, 15, 18, 11, 0, 180);
+
+                g2.drawOval(5, 10, 6, 6);
+                g2.drawArc(1, 17, 13, 9, 0, 180);
+
+                g2.drawOval(19, 10, 6, 6);
+                g2.drawArc(16, 17, 13, 9, 0, 180);
+
                 g2.dispose();
             }
+
             @Override
-            public Dimension getPreferredSize() { return new Dimension(32, 32); }
+            public Dimension getPreferredSize() {
+                return new Dimension(32, 32);
+            }
         };
 
         JPanel textos = crearPanelTextos(nombre, "Ultimo mensaje");
@@ -298,7 +350,7 @@ public class UsersListView extends JFrame {
         content.setOpaque(false);
         content.add(lblIcono);
         content.add(textos);
-        
+
         fila.add(content, BorderLayout.WEST);
 
         // NAVEGACIÓN: Al hacer clic en la fila del grupo, también abre el ChatView CAMBIAR A CHAT DE GRUPO
@@ -338,7 +390,7 @@ public class UsersListView extends JFrame {
         btn.setBorderPainted(false);
         btn.setFocusPainted(false);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        
+
         btn.addActionListener(e -> {
             pestañaActiva = id;
             panelHeaderTabs.repaint();
@@ -360,9 +412,14 @@ public class UsersListView extends JFrame {
     private JPanel crearPanelTextos(String titulo, String sub) {
         JPanel p = new JPanel(new GridLayout(2, 1, 0, -2));
         p.setOpaque(false);
-        JLabel t = new JLabel(titulo); t.setFont(new Font("Segoe UI", Font.BOLD, 14)); t.setForeground(Color.WHITE);
-        JLabel s = new JLabel(sub); s.setFont(new Font("Segoe UI", Font.PLAIN, 12)); s.setForeground(new Color(140, 150, 180));
-        p.add(t); p.add(s);
+        JLabel t = new JLabel(titulo);
+        t.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        t.setForeground(Color.WHITE);
+        JLabel s = new JLabel(sub);
+        s.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        s.setForeground(new Color(140, 150, 180));
+        p.add(t);
+        p.add(s);
         return p;
     }
 
@@ -374,14 +431,19 @@ public class UsersListView extends JFrame {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setStroke(new BasicStroke(1.5f));
                 g2.setColor(estado[0].equals("AMIGO") ? new Color(112, 142, 255) : Color.WHITE);
-                g2.drawOval(4, 3, 8, 8); g2.drawArc(1, 13, 14, 8, 0, 180);
+                g2.drawOval(4, 3, 8, 8);
+                g2.drawArc(1, 13, 14, 8, 0, 180);
                 if (estado[0].equals("AMIGO")) {
-                    g2.drawLine(16, 12, 18, 15); g2.drawLine(18, 15, 23, 9);
+                    g2.drawLine(16, 12, 18, 15);
+                    g2.drawLine(18, 15, 23, 9);
                 } else if (estado[0].equals("ESPERANDO")) {
                     g2.setColor(new Color(112, 142, 255));
-                    g2.fillOval(16, 11, 2, 2); g2.fillOval(19, 11, 2, 2); g2.fillOval(22, 11, 2, 2);
+                    g2.fillOval(16, 11, 2, 2);
+                    g2.fillOval(19, 11, 2, 2);
+                    g2.fillOval(22, 11, 2, 2);
                 } else {
-                    g2.drawLine(19, 8, 19, 14); g2.drawLine(16, 11, 22, 11);
+                    g2.drawLine(19, 8, 19, 14);
+                    g2.drawLine(16, 11, 22, 11);
                 }
                 g2.dispose();
             }
@@ -389,11 +451,14 @@ public class UsersListView extends JFrame {
         configurarBotonIcono(btn);
         btn.setVisible(false);
         btn.addActionListener(e -> {
-            if (estado[0].equals("AMIGO")) JOptionPane.showMessageDialog(this, "Este contacto ya es tu amigo");
-            else if (estado[0].equals("ESPERANDO")) JOptionPane.showMessageDialog(this, "Esperando respuesta a la solicitud", "Pendiente", JOptionPane.WARNING_MESSAGE);
-            else {
+            if (estado[0].equals("AMIGO")) {
+                JOptionPane.showMessageDialog(this, "Este contacto ya es tu amigo");
+            } else if (estado[0].equals("ESPERANDO")) {
+                JOptionPane.showMessageDialog(this, "Esperando respuesta a la solicitud", "Pendiente", JOptionPane.WARNING_MESSAGE);
+            } else {
                 JOptionPane.showMessageDialog(this, "Solicitud de amistad enviada");
-                estado[0] = "ESPERANDO"; btn.repaint();
+                estado[0] = "ESPERANDO";
+                btn.repaint();
             }
         });
         return btn;
@@ -401,13 +466,25 @@ public class UsersListView extends JFrame {
 
     private void configurarEventosHover(JPanel fila, JButton btn) {
         fila.addMouseListener(new MouseAdapter() {
-            @Override public void mouseEntered(MouseEvent e) { btn.setVisible(true); fila.repaint(); }
-            @Override public void mouseExited(MouseEvent e) { if (!fila.getBounds().contains(e.getPoint())) { btn.setVisible(false); fila.repaint(); } }
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                btn.setVisible(true);
+                fila.repaint();
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                if (!fila.getBounds().contains(e.getPoint())) {
+                    btn.setVisible(false);
+                    fila.repaint();
+                }
+            }
         });
     }
 
     private JPanel armarFilaCompleta(JPanel fila) {
-        JSeparator div = new JSeparator(); div.setForeground(new Color(255, 255, 255, 12));
+        JSeparator div = new JSeparator();
+        div.setForeground(new Color(255, 255, 255, 12));
         JPanel contenedor = new JPanel(new BorderLayout());
         contenedor.setOpaque(false);
         contenedor.add(fila, BorderLayout.CENTER);
@@ -416,11 +493,59 @@ public class UsersListView extends JFrame {
     }
 
     private void configurarBotonIcono(JButton btn) {
-        btn.setPreferredSize(new Dimension(24, 24)); btn.setContentAreaFilled(false); btn.setBorderPainted(false); btn.setFocusPainted(false); btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setPreferredSize(new Dimension(24, 24));
+        btn.setContentAreaFilled(false);
+        btn.setBorderPainted(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
     }
 
     public static void main(String args[]) {
-        try { for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) if ("Nimbus".equals(info.getName())) { UIManager.setLookAndFeel(info.getClassName()); break; } } catch (Exception ex) {}
+        try {
+            for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
+                if ("Nimbus".equals(info.getName())) {
+                    UIManager.setLookAndFeel(info.getClassName());
+                    break;
+                }
+            }
+        } catch (Exception ex) {
+        }
         EventQueue.invokeLater(() -> new UsersListView().setVisible(true));
     }
+
+    private void initSocket() {
+        // Get the global (singleton) instance
+        ClientSocket client = ClientSocket.getInstance();
+
+        // Tell the client to send updates to this frame's label
+        //client.setStatusListener(mensaje -> lblConStatus.setText(mensaje));
+        // Server responess Mapping
+        client.setMessageListener(rawJson -> {
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                com.fasterxml.jackson.databind.JsonNode rootNode = mapper.readTree(rawJson);
+
+                if (rootNode.has("type")) {
+                    String tipo = rootNode.get("type").asText();
+
+                    if (tipo.equals("UPDATE_CON_STATUS")) {
+                        // Update con status
+
+                    } else if (tipo.equals("LOGOUT_SUCCESS")) {
+                        // Clear session
+                        SessionManager.getInstance().logout();
+                        // Return login
+                        new LoginView().setVisible(true);
+                        dispose();
+                    }
+                }
+            } catch (Exception ex) {
+                System.err.println("Error procesando respuesta del servidor: " + ex.getMessage());
+            }
+        });
+
+        // Connect
+        client.tryConnect();
+    }
+
 }

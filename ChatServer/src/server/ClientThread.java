@@ -72,6 +72,10 @@ public class ClientThread implements Runnable {
 
                                 server.writeConsole("[Cliente #" + clientId + "] LOGIN SUCCESS: For " + emailReq);
 
+                                // Change con status to true
+                                userDAO.changeIsConnected(emailReq, true);
+//                                retrievedUser.setIsConnected(true);
+
                                 // Clear the password for security before sending it over the network
                                 retrievedUser.setPassword(null);
 
@@ -96,7 +100,7 @@ public class ClientThread implements Runnable {
                             String emailReq = rootNode.get("email").asText();
                             String passReq = rootNode.get("password").asText();
                             // isConnected is false by default
-                                                        
+
                             server.writeConsole("[Cliente #" + clientId + "] SIGNUP REQUEST: Name" + name + "Email: " + emailReq + " Password: " + passReq);
 
                             // Retrieve and verify from DB
@@ -142,6 +146,19 @@ public class ClientThread implements Runnable {
 
                             }
 
+                        } else if (tipo.equals("LOGOUT_REQUEST")) {
+
+                            // Get email to logout
+                            String emailReq = rootNode.get("email").asText();
+                            server.writeConsole("[Cliente #" + clientId + "] LOGOUT_REQUEST: Email: " + emailReq);
+
+                            UserDAO userDAO = new UserDAO();
+                            // Make is_connected false
+                            userDAO.changeIsConnected(emailReq, false);
+
+                            // HERE ALL TODOS MESSAGES WITH EMAIL emailReq SHOULD BE DELETED
+                            // Return success
+                            out.println("{\"type\": \"LOGOUT_SUCCESS\"}");
                         }
                     }
                 } catch (Exception jsonEx) {

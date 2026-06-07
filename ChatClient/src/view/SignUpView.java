@@ -58,8 +58,7 @@ public class SignUpView extends JFrame {
         gbc.insets = new Insets(0, 4, 8, 4);
         panelPrincipal.add(lblUser, gbc);
 
-        txtUsuario = crearCampoTexto("Anna");
-        ///TEMPORAL 
+        txtUsuario = crearCampoTexto("");        
 
         gbc.gridy = 2;
         gbc.insets = new Insets(0, 0, 24, 0);
@@ -71,7 +70,7 @@ public class SignUpView extends JFrame {
         gbc.insets = new Insets(0, 4, 8, 4);
         panelPrincipal.add(lblEmail, gbc);
 
-        txtEmail = crearCampoTexto("hello@reallygreatsite.com"); //TEMPORAL
+        txtEmail = crearCampoTexto("");
 
         gbc.gridy = 4;
         gbc.insets = new Insets(0, 0, 24, 0);
@@ -83,7 +82,7 @@ public class SignUpView extends JFrame {
         gbc.insets = new Insets(0, 4, 8, 4);
         panelPrincipal.add(lblPass, gbc);
 
-        txtPassword = crearCampoPassword("******"); //cambiar 
+        txtPassword = crearCampoPassword("");
 
         gbc.gridy = 6;
         gbc.insets = new Insets(0, 0, 60, 0);

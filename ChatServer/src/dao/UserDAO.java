@@ -136,6 +136,25 @@ public class UserDAO extends DatabaseConnection {
         }
 
         return true;
+    }
+    
+      // Will return false if fails or user doesnt exists
+    public boolean changeIsConnected(String email, boolean newStatus) {
 
+        // Attempt to change password
+        String sql = "UPDATE users SET is_connected = ? WHERE email = ?";
+
+        try {
+            PreparedStatement ps;
+            ps = getCon().prepareStatement(sql);
+            ps.setBoolean(1, newStatus);
+            ps.setString(2, email);
+            ps.executeUpdate();
+        } catch (SQLException ex) {
+            System.getLogger(UserDAO.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+            return false;
+        }
+
+        return true;
     }
 }
