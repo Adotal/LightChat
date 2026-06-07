@@ -67,8 +67,8 @@ public class UserDAO extends DatabaseConnection {
     public User getUserById(int idUser) {
         String sql = "SELECT * FROM users WHERE id_user = ?";
         User user = null;
-        try {            
-            PreparedStatement ps = getCon().prepareStatement(sql);            
+        try {
+            PreparedStatement ps = getCon().prepareStatement(sql);
             ps.setInt(1, idUser);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
@@ -92,8 +92,8 @@ public class UserDAO extends DatabaseConnection {
         String sql = "SELECT * FROM users WHERE email = ?";
         User user = null;
         try {
-                        
-            PreparedStatement ps = getCon().prepareStatement(sql);            
+
+            PreparedStatement ps = getCon().prepareStatement(sql);
             ps.setString(1, email);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
@@ -110,5 +110,32 @@ public class UserDAO extends DatabaseConnection {
             e.printStackTrace();
         }
         return user;
+    }
+
+    
+    // Will return false if fails or user doesnt exists
+    public boolean changePassword(String email, String newPassword) {
+
+        // Check if user exists
+        if (getUserByEmail(email) == null) {
+            return false;
+        }
+
+        // Attempt to change password
+        String sql = "UPDATE users SET password = ? WHERE email = ?";
+
+        try {
+            PreparedStatement ps;
+            ps = getCon().prepareStatement(sql);
+            ps.setString(1, newPassword);
+            ps.setString(2, email);
+            ps.executeUpdate();
+        } catch (SQLException ex) {
+            System.getLogger(UserDAO.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+            return false;
+        }
+
+        return true;
+
     }
 }

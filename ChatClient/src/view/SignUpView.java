@@ -5,8 +5,8 @@ import java.awt.*;
 import java.awt.geom.RoundRectangle2D;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import model.LoginRequest;
-import model.SignUpRequest;
+import model.dbrequest.LoginRequest;
+import model.dbrequest.SignUpRequest;
 import socket.ClientSocket;
 
 public class SignUpView extends JFrame {
@@ -127,41 +127,34 @@ public class SignUpView extends JFrame {
 
         btnSignUp.addActionListener(e -> {
 
+            // Get data from textFields
+            String username = txtUsuario.getText();
+            String email = txtEmail.getText();
+            // getPassword() returns char[], parse to String
+            String password = new String(txtPassword.getPassword());
+
+            if (email.isEmpty() || password.isEmpty() || username.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Por favor llena ambos campos.");
+                return;
+            }
+
+            // Send login request
             try {
+                // Create object from data
+                SignUpRequest request = new SignUpRequest(username, email, password);
 
-                // Get data from textFields
-                String username = txtUsuario.getText();
-                String email = txtEmail.getText();
-                // getPassword() returns char[], parse to String
-                String password = new String(txtPassword.getPassword());
+                // Convert object to JSON usign Jackson
+                ObjectMapper mapper = new ObjectMapper();
+                String jsonString = mapper.writeValueAsString(request);
 
-                if (email.isEmpty() || password.isEmpty() || username.isEmpty()) {
-                    JOptionPane.showMessageDialog(this, "Por favor llena ambos campos.");
-                    return;
-                }
-
-                // Send login request
-                try {
-                    // Create object from data
-                    SignUpRequest request = new SignUpRequest(username, email, password);
-
-                    // Convert object to JSON usign Jackson
-                    ObjectMapper mapper = new ObjectMapper();
-                    String jsonString = mapper.writeValueAsString(request);
-
-                    // Enviar el JSON al servidor
-                    ClientSocket.getInstance().sendText(jsonString);
-
-                } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(this, "Error al enviar solicitud: " + ex.getMessage());
-                    ex.printStackTrace();
-                }
+                // Enviar el JSON al servidor
+                ClientSocket.getInstance().sendText(jsonString);
 
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(
-                        this,
-                        "UsersListView no encontrada.");
+                JOptionPane.showMessageDialog(this, "Error al enviar solicitud: " + ex.getMessage());
+                ex.printStackTrace();
             }
+
         });
 
         gbc.gridy = 7;
