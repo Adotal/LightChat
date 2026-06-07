@@ -26,6 +26,7 @@ public class LoginView extends JFrame {
     private int errorCount = 0;
 
     public LoginView() {
+        super();
         initComponents();
         initSocket();
     }
@@ -54,7 +55,7 @@ public class LoginView extends JFrame {
         gbc.insets = new Insets(0, 0, 100, 0);
         panelPrincipal.add(lblConStatus, gbc);
 
-        JLabel lblTitulo = new JLabel("<html><div style='text-align:center;'>Inicia<br>sesión</div></html>");
+        JLabel lblTitulo = new JLabel("<html><div style='text-align:center;'>Iniciar<br>sesión</div></html>");
         lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 36));
         lblTitulo.setForeground(Color.WHITE);
         lblTitulo.setHorizontalAlignment(SwingConstants.CENTER);
