@@ -1,51 +1,56 @@
 package view;
 
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import model.Group;
+import model.UserGroup;
+
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.ArrayList;
 
-// CLASE PRINCIPAL QUE GENERA LA VENTANA DE CHAT DE GRUPO
+
 public class GroupChatView extends JFrame {
 
-    // VARIABLES DE CONFIGURACIÓN PARA EL LAYOUT DINÁMICO DEL CHAT
+    // ESTRUCTURAS DE CONTROL DE POSICIONAMIENTO DINÁMICO PARA LAS BURBUJAS DE TEXTO
     private GroupLayout layoutChat;
     private GroupLayout.SequentialGroup grupoVerticalPrincipal;
     private GroupLayout.ParallelGroup grupoHorizontalPrincipal;
 
-    // COMPONENTES GRÁFICOS DE LA INTERFAZ DE USUARIO
+    // COMPONENTES PRINCIPALES DE LA INTERFAZ GRÁFICA DEL CHAT
     private JTextField txtHeader;   
     private JTextField txtInput;    
     private JButton btnEnviar;      
     private JPanel panelChat;       
     private JScrollPane scrollPane;  
 
-    // ASOCIACIÓN DE DATOS CON LA CLASE INTERNA DE GROUPSVIEW
-    private GroupsView.MockGroup grupoActual;
+    // INSTANCIAS DE DATOS Y SEGUIMIENTO DE FLUJO DE MENSAJES
+    private Group grupoActual;
     private int contadorMensajes = 0; 
 
-    // CONSTRUCTOR PARAMETRIZADO: RECIBE EL MODELO DE DATOS DESDE LA VISTA DE ORIGEN
-    public GroupChatView(GroupsView.MockGroup grupo) {
+    // MATRIZ DE COLORES ASIGNADOS PARA DISTINGUIR VISUALMENTE A LOS USUARIOS
+    private final Color[] PALETA_COLORES = {
+        new Color(82, 113, 255),  // AZUL ELÁSTICO
+        new Color(141, 75, 255),  // MORADO VIBRANTE
+        new Color(0, 185, 206)    // CIAN OSCURO
+    };
+
+    public GroupChatView(Group grupo) {
         this.grupoActual = grupo;
 
-        // CONFIGURACIÓN DE PROPIEDADES DE LA VENTANA DEL CHAT
+        // CONFIGURACIÓN DE LA VENTANA PRINCIPAL (TÍTULO DINÁMICO Y COMPORTAMIENTO DE CIERRE)
         setTitle("Chat - " + grupoActual.getTitle());
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE); 
         setSize(450, 600); 
         setMinimumSize(new Dimension(400, 500)); 
         
-        // ASIGNA DISPOSICIÓN DE BORDES Y COLOR DE FONDO AZUL
+        // ESTABLECE LA DISPOSICIÓN PRINCIPAL EN CAPAS Y DEFINE EL COLOR DE FONDO
         getContentPane().setLayout(new BorderLayout());
         getContentPane().setBackground(new Color(52, 73, 137)); 
 
-        // CREA LA BARRA SUPERIOR DINÁMICA CON EL TÍTULO DEL GRUPO
+        // CREACIÓN Y ESTILIZADO DE LA BANDEJA SUPERIOR CON EL NOMBRE DEL GRUPO ACTIVO
         txtHeader = new JTextField(grupoActual.getTitle());
         txtHeader.setEditable(false); 
         txtHeader.setBorder(new EmptyBorder(0, 50, 0, 0)); 
@@ -55,15 +60,15 @@ public class GroupChatView extends JFrame {
         txtHeader.setPreferredSize(new Dimension(450, 60)); 
         getContentPane().add(txtHeader, BorderLayout.NORTH);
 
-        // CREA EL PANEL DE FONDO DONDE SE RENDERIZAN LOS MENSAJES
+        // CREACIÓN DEL PANEL DE FONDO QUE ALBERGA Y RENDERIZA LAS FILAS DE MENSAJES
         panelChat = new JPanel();
         panelChat.setBackground(new Color(52, 73, 137)); 
         
-        // INICIALIZA Y CONFIGURA EL LAYOUT BASE EN BLANCO
+        // PREPARA EL CONFIGURADOR DE DISEÑO INICIAL ANTES DE RECIBIR MENSAJES
         reiniciarLayoutBase();
         CerrarYConstruirLayoutInterno();
 
-        // CREA EL CONTENEDOR CON SCROLLBAR PARA EL PANEL DE CHAT
+        // INTEGRACIÓN DE LA BARRA DE DESPLAZAMIENTO PARA CONTENER EL FLUJO DE LA CONVERSACIÓN
         scrollPane = new JScrollPane(panelChat);
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
         scrollPane.setOpaque(false);
@@ -71,7 +76,7 @@ public class GroupChatView extends JFrame {
         scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         getContentPane().add(scrollPane, BorderLayout.CENTER);
 
-        // CREA EL CAMPO DE TEXTO PARA QUE EL USUARIO ESCRIBA
+        // DISEÑO Y PERSONALIZACIÓN DEL CAMPO DE TEXTO DE ENTRADA DE MENSAJES
         txtInput = new JTextField("");
         txtInput.setBackground(new Color(11, 23, 62));
         txtInput.setForeground(Color.WHITE);
@@ -79,7 +84,7 @@ public class GroupChatView extends JFrame {
         txtInput.setBorder(new EmptyBorder(10, 20, 10, 10)); 
         txtInput.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 16));
 
-        // CREA EL BOTÓN CON EL SÍMBOLO MAYOR QUE PARA EL ENVÍO
+        // DISEÑO Y ENFOQUE DEL BOTÓN DE ACCIÓN PARA EL ENVÍO
         btnEnviar = new JButton(">");
         btnEnviar.setBackground(new Color(11, 23, 62));
         btnEnviar.setForeground(Color.WHITE);
@@ -87,7 +92,7 @@ public class GroupChatView extends JFrame {
         btnEnviar.setFocusPainted(false); 
         btnEnviar.setBorder(null);
 
-        // CREA EL PANEL INFERIOR PARA INTEGRAR CAMPO DE TEXTO Y BOTÓN
+        // PANEL INFERIOR CONTENEDOR QUE CONECTA EL CAMPO DE TEXTO Y EL BOTÓN DE ENVÍO
         JPanel panelInferior = new JPanel(new BorderLayout(10, 0));
         panelInferior.setBackground(new Color(52, 73, 137));
         panelInferior.setBorder(new EmptyBorder(15, 20, 20, 20)); 
@@ -96,7 +101,7 @@ public class GroupChatView extends JFrame {
         btnEnviar.setPreferredSize(new Dimension(50, 45)); 
         getContentPane().add(panelInferior, BorderLayout.SOUTH);
 
-        // CONFIGURA EL ESCUCHADOR DE ACCIÓN AL HACER CLICK EN ENVIAR
+        // REGISTRO DEL GESTOR DE EVENTOS AL HACER CLIC SOBRE EL BOTÓN DE ENVÍO
         btnEnviar.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -104,7 +109,7 @@ public class GroupChatView extends JFrame {
             }
         });
         
-        // CONFIGURA EL ESCUCHADOR DE ACCIÓN AL PRESIONAR ENTER EN EL CAMPO
+        // REGISTRO DEL GESTOR DE EVENTOS AL PRESIONAR LA TECLA ENTER DENTRO DEL CAMPO DE TEXTO
         txtInput.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -112,11 +117,11 @@ public class GroupChatView extends JFrame {
             }
         });
 
-        // CENTRA LA VENTANA EN EL MEDIO DE LA PANTALLA
+        // ESTABLECE LA POSICIÓN INICIAL DE LA VENTANA CENTRADA EN EL MONITOR
         setLocationRelativeTo(null);
     }
 
-    // MÉTODO: INSTANCIA EL GESTOR GROUPLAYOUT Y CREA LOS GRUPOS DIRECCIONALES
+    // CONSTRUYE LAS COORDENADAS E INTERFACES DE ALINEACIÓN PARA EL GESTOR DE DISEÑO
     private void reiniciarLayoutBase() {
         layoutChat = new GroupLayout(panelChat);
         panelChat.setLayout(layoutChat);
@@ -125,30 +130,33 @@ public class GroupChatView extends JFrame {
         grupoVerticalPrincipal = layoutChat.createSequentialGroup();
     }
 
-    // MÉTODO: VALIDA EL TEXTO EXTRAE EL USUARIO MOCK E INYECTA LA BURBUJA EN EL CHAT
+    // EXTRAE EL TEXTO, ASIGNA RESPONSABLE SIMULADO Y GESTIONA EL COLOR DE LA BURBUJA
     private void procesarNuevoMensaje() {
         String texto = txtInput.getText().trim(); 
         
+        // RESTRICCIÓN DE ENVÍO PARA EVITAR MENSAJES VACÍOS O COMPORTAMIENTOS HUÉRFANOS
         if (!texto.isEmpty() && grupoActual.getUsers() != null && !grupoActual.getUsers().isEmpty()) {
-            // CALCULA CUÁL USUARIO ENVIARÁ EL MENSAJE SEGÚN EL TURNO DEL CONTADOR
+            // ITERA DE MANERA CÍCLICA ENTRE LOS MIEMBROS DEL GRUPO PARA SIMULAR LA RESPUESTA
             int indiceUsuario = contadorMensajes % grupoActual.getUsers().size();
-            
-            // EXTRAE EL USUARIO ANIDADO DE LA CLASE GENERAL GROUPSVIEW
-            GroupsView.MockUser usuarioAsociado = grupoActual.getUsers().get(indiceUsuario);
+            UserGroup usuarioAsociado = grupoActual.getUsers().get(indiceUsuario);
 
-            // LLAMA AL GENERADOR GRÁFICO DE MENSAJES PASANDO SUS ATRIBUTOS
-            inyectarComponentesMensaje(usuarioAsociado.getUserName(), texto, usuarioAsociado.getUserColor());
+            // CALCULA EL COLOR ADECUADO DE LA PALETA MEDIANTE EL IDENTIFICADOR DEL USUARIO
+            int indiceColor = Math.abs(usuarioAsociado.getId()) % PALETA_COLORES.length;
+            Color colorBurbuja = PALETA_COLORES[indiceColor];
+
+            // CREA E INYECTA LOS NUEVOS COMPONENTES VISUALES EN LA COLA GRÁFICA
+            inyectarComponentesMensaje(usuarioAsociado.getUserName(), texto, colorBurbuja);
             
-            // RECONSTRUYE LA INTERFAZ Y LIMPIA EL CAMPO DE TEXTO
+            // RECONSTRUYE LAS RELACIONES DEL DISEÑO INTERNO CON LA NUEVA BURBUJA
             CerrarYConstruirLayoutInterno();
             txtInput.setText("");
             contadorMensajes++;
             
-            // FUERZA EL REFRESCO VISUAL COMPLETO DEL PANEL DE CHAT
+            // FUERZA EL REDIBUJADO INTERNO DE LA PANTALLA PARA ACTUALIZAR LA VISTA
             panelChat.revalidate();
             panelChat.repaint();
 
-            // DESPLAZA AUTOMÁTICAMENTE EL SCROLLBAR HACIA LA PARTE INFERIOR
+            // DESPLAZA AUTOMÁTICAMENTE EL SCROLLBAR HACIA LA PARTE INFERIOR DEL CHAT
             SwingUtilities.invokeLater(() -> {
                 JScrollBar vertical = scrollPane.getVerticalScrollBar();
                 vertical.setValue(vertical.getMaximum());
@@ -156,16 +164,16 @@ public class GroupChatView extends JFrame {
         }
     }
 
-    // MÉTODO: CREA LAS BURBUJAS DE TEXTO Y LAS ACOMODA DENTRO DEL LAYOUT DE MANERA SECUENCIAL
+    // CREA Y ACOMODA DE FORMA SECUENCIAL LA BURBUJA DE TEXTO Y LA ETIQUETA DEL USUARIO
     private void inyectarComponentesMensaje(String usuario, String mensaje, Color colorBurbuja) {
-        // CREA LA ETIQUETA CON EL NOMBRE DEL REMITENTE
+        // ENCABEZADO DE TEXTO QUE INDICA EL EMISOR DEL MENSAJE
         JLabel lblUser = new JLabel(usuario);
         lblUser.setForeground(Color.WHITE);
         lblUser.setFont(new java.awt.Font("SansSerif", java.awt.Font.BOLD, 13));
 
-        // CREA EL ÁREA DE TEXTO CON AJUSTE AUTOMÁTICO DE LÍNEA PARA EL MENSAJE
+        // ÁREA DE TEXTO QUE COMPONE EL CUERPO PRINCIPAL DE LA BURBUJA DE MENSAJE
         JTextArea txtMensaje = new JTextArea(mensaje);
-        txtMensaje.setBackground(colorBurbuja);
+        txtMensaje.setBackground(colorBurbuja); 
         txtMensaje.setForeground(Color.WHITE);
         txtMensaje.setEditable(false);
         txtMensaje.setLineWrap(true);       
@@ -173,7 +181,7 @@ public class GroupChatView extends JFrame {
         txtMensaje.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 15));
         txtMensaje.setBorder(new EmptyBorder(8, 10, 8, 10)); 
 
-        // DEFINE LAS DISTANCIAS Y ANCHOS DENTRO DEL ESQUEMA HORIZONTAL
+        // DEFINE LAS REGLAS DE ANCHO, MÁRGENES Y REDIMENSIONAMIENTO HORIZONTAL DEL COMPONENTE
         grupoHorizontalPrincipal.addGroup(layoutChat.createSequentialGroup()
             .addGap(20) 
             .addGroup(layoutChat.createParallelGroup(GroupLayout.Alignment.LEADING)
@@ -182,14 +190,14 @@ public class GroupChatView extends JFrame {
             .addGap(20) 
         );
 
-        // DEFINE LAS DISTANCIAS Y ALINEACIONES EN EL ESQUEMA VERTICAL SECUENCIAL
+        // ESTABLECE EL DISTANCIAMIENTO VERTICAL Y CONEXIÓN ENTRE ELEMENTOS DE UNA FILA
         grupoVerticalPrincipal.addGap(15) 
             .addComponent(lblUser, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
             .addPreferredGap(LayoutStyle.ComponentPlacement.RELATED) 
             .addComponent(txtMensaje, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE);
     }
 
-    // MÉTODO: CIERRA LA CONFIGURACIÓN Y ESTABLECE EL ESQUEMA FINAL AL LAYOUT
+    // APLICA Y CONSOLIDA LOS ESQUEMAS FINALES HORIZONTALES Y VERTICALES SOBRE EL CONTENEDOR
     private void CerrarYConstruirLayoutInterno() {
         layoutChat.setHorizontalGroup(grupoHorizontalPrincipal);
         layoutChat.setVerticalGroup(grupoVerticalPrincipal.addGap(15));
