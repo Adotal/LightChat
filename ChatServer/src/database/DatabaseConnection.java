@@ -17,8 +17,10 @@ import java.util.Properties;
  */
 public class DatabaseConnection {
 
-    public static Connection connect() {
+    private Connection con;
 
+    public DatabaseConnection() {
+        // Load files
         Properties props = new Properties();
 
         // Native loader for the local .env file
@@ -39,10 +41,14 @@ public class DatabaseConnection {
 
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
-            return DriverManager.getConnection(url, user, password);
+            con = DriverManager.getConnection(url, user, password);
         } catch (ClassNotFoundException | SQLException e) {
-            System.out.println("[ERROR] Connection failed: " + e.getMessage());
-            return null;
+            System.out.println("[ERROR] Connection failed: " + e.getMessage());            
         }
+
+    }
+
+    public Connection getCon() {
+        return con;
     }
 }
