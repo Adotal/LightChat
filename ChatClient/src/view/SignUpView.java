@@ -1,9 +1,13 @@
 package view;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.awt.*;
 import java.awt.geom.RoundRectangle2D;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import model.dbrequest.LoginRequest;
+import model.dbrequest.SignUpRequest;
+import socket.ClientSocket;
 
 public class SignUpView extends JFrame {
 
@@ -17,6 +21,7 @@ public class SignUpView extends JFrame {
     public SignUpView() {
         super();
         initComponents();
+        initSocket();
     }
 
     private void initComponents() {
@@ -27,7 +32,6 @@ public class SignUpView extends JFrame {
         setMinimumSize(new Dimension(420, 720));
         setLocationRelativeTo(null);
 
-      
         panelPrincipal = new JPanel(new GridBagLayout());
         panelPrincipal.setBackground(new Color(8, 18, 68));
         panelPrincipal.setBorder(new EmptyBorder(40, 35, 40, 35));
@@ -37,7 +41,6 @@ public class SignUpView extends JFrame {
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 1.0;
 
-        
         JLabel lblTitulo = new JLabel(
                 "<html><div style='text-align:center;'>Crea una<br>cuenta</div></html>");
 
@@ -55,13 +58,13 @@ public class SignUpView extends JFrame {
         gbc.insets = new Insets(0, 4, 8, 4);
         panelPrincipal.add(lblUser, gbc);
 
-        txtUsuario = crearCampoTexto("Anna");  ///TEMPORAL 
+        txtUsuario = crearCampoTexto("Anna");
+        ///TEMPORAL 
 
         gbc.gridy = 2;
         gbc.insets = new Insets(0, 0, 24, 0);
         panelPrincipal.add(txtUsuario, gbc);
 
-       
         JLabel lblEmail = crearLabelCampo("EMAIL");
 
         gbc.gridy = 3;
@@ -86,7 +89,6 @@ public class SignUpView extends JFrame {
         gbc.insets = new Insets(0, 0, 60, 0);
         panelPrincipal.add(txtPassword, gbc);
 
-       
         btnSignUp = new JButton("Sign up") {
 
             @Override
@@ -125,21 +127,40 @@ public class SignUpView extends JFrame {
 
         btnSignUp.addActionListener(e -> {
 
-            try {
-                new UsersListView().setVisible(true);
-                dispose();
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(
-                        this,
-                        "UsersListView no encontrada.");
+            // Get data from textFields
+            String username = txtUsuario.getText();
+            String email = txtEmail.getText();
+            // getPassword() returns char[], parse to String
+            String password = new String(txtPassword.getPassword());
+
+            if (email.isEmpty() || password.isEmpty() || username.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Por favor llena ambos campos.");
+                return;
             }
+
+            // Send login request
+            try {
+                // Create object from data
+                SignUpRequest request = new SignUpRequest(username, email, password);
+
+                // Convert object to JSON usign Jackson
+                ObjectMapper mapper = new ObjectMapper();
+                String jsonString = mapper.writeValueAsString(request);
+
+                // Enviar el JSON al servidor
+                ClientSocket.getInstance().sendText(jsonString);
+
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Error al enviar solicitud: " + ex.getMessage());
+                ex.printStackTrace();
+            }
+
         });
 
         gbc.gridy = 7;
         gbc.insets = new Insets(0, 0, 35, 0);
         panelPrincipal.add(btnSignUp, gbc);
 
-        
         //link al login
         lblIrALogin = new JLabel(
                 "<html>Si ya tienes una cuenta, haz "
@@ -164,8 +185,7 @@ public class SignUpView extends JFrame {
         gbc.gridy = 8;
         gbc.insets = new Insets(5, 0, 0, 0);
         panelPrincipal.add(lblIrALogin, gbc);
-        
-      
+
         add(panelPrincipal);
     }
 
@@ -249,21 +269,20 @@ public class SignUpView extends JFrame {
 
     private void estilizarInput(JTextField field) {
 
-    field.setFont(new Font("Segoe UI", Font.PLAIN, 16));
-    field.setForeground(Color.WHITE);
-    field.setCaretColor(Color.WHITE);
+        field.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+        field.setForeground(Color.WHITE);
+        field.setCaretColor(Color.WHITE);
 
-    field.setOpaque(false);
+        field.setOpaque(false);
 
-   
-    field.setBackground(new Color(0,0,0,0));
-    field.setBorder(BorderFactory.createEmptyBorder(10, 24, 10, 24));
+        field.setBackground(new Color(0, 0, 0, 0));
+        field.setBorder(BorderFactory.createEmptyBorder(10, 24, 10, 24));
 
-    field.putClientProperty("Nimbus.Overrides", null);
-    field.putClientProperty("Nimbus.Overrides.InheritDefaults", false);
+        field.putClientProperty("Nimbus.Overrides", null);
+        field.putClientProperty("Nimbus.Overrides.InheritDefaults", false);
 
-    field.setPreferredSize(new Dimension(0, 56));
-}
+        field.setPreferredSize(new Dimension(0, 56));
+    }
 
     public JTextField getTxtUsuario() {
         return txtUsuario;
@@ -306,4 +325,44 @@ public class SignUpView extends JFrame {
             new SignUpView().setVisible(true);
         });
     }
+
+    private void initSocket() {
+        // Get the global (singleton) instance
+        ClientSocket client = ClientSocket.getInstance();
+
+        // Tell the client to send updates to this frame's label
+        //client.setStatusListener(mensaje -> lblConStatus.setText(mensaje));
+        // Server responess Mapping
+        client.setMessageListener(rawJson -> {
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                com.fasterxml.jackson.databind.JsonNode rootNode = mapper.readTree(rawJson);
+
+                if (rootNode.has("type")) {
+                    String tipo = rootNode.get("type").asText();
+
+                    if (tipo.equals("SIGNUP_SUCCESS")) {
+                        // On signup success, go to login
+                        JOptionPane.showMessageDialog(this, "Registro exitoso");
+
+                        new LoginView().setVisible(true);
+                        this.dispose();
+
+                    } else if (tipo.equals("SIGNUP_ERROR")) {
+                        // Extract custom error message from server if it exists
+                        String errorMsg = rootNode.has("message") ? rootNode.get("message").asText() : "Registro no completado";
+
+                        // On Login failure, display dialog cleanly
+                        JOptionPane.showMessageDialog(this, "Error en signup: " + errorMsg, "Error de acceso", JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            } catch (Exception ex) {
+                System.err.println("Error procesando respuesta del servidor: " + ex.getMessage());
+            }
+        });
+
+        // Connect
+        client.tryConnect();
+    }
+
 }

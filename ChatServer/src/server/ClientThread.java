@@ -27,80 +27,6 @@ public class ClientThread implements Runnable {
         return clientId;
     }
 
-//    @Override
-//    public void run() {
-//
-//        String ip = client.getRemoteSocketAddress().toString();
-//        server.writeConsole("[Cliente #" + clientId + "] conectado desde " + ip);
-//
-//        // Escucha entradas y las imprime
-//        StringBuilder sb = new StringBuilder();
-//        // Jackson
-//        ObjectMapper mapper = new ObjectMapper();
-//
-//        try {
-//
-//            byte[] byteArray;
-//            byteArray = new byte[100];
-//            int bytesRead; // Guarda la cantidad real de bytes leídos
-//
-//            // Guardamos el resultado del read en bytesRead
-//            while ((bytesRead = client.getInputStream().read(byteArray)) != -1) {
-//
-//                // Corregido: Convertimos solo los bytes reales que llegaron (evita basura)
-//                sb.append(new String(byteArray, 0, bytesRead));
-//                String receivedData = sb.toString().trim(); // Obtenemos el texto y quitamos espacios/saltos extra
-//
-//                server.writeConsole("[Cliente #" + clientId + "] JSON Crudo: " + receivedData);
-//
-//                // ---------------------JACKSON MAPPING--------------------
-//                try {
-//                    // Leemos el String JSON y lo convertimos a un árbol de nodos
-//                    com.fasterxml.jackson.databind.JsonNode rootNode = mapper.readTree(receivedData);
-//
-//                    // Verificamos qué tipo de petición es
-//                    if (rootNode.has("type")) {
-//                        String tipo = rootNode.get("type").asText();
-//
-//                        if (tipo.equals("LOGIN")) {
-//                            // Extraemos el email y el password
-//                            String emailReq = rootNode.get("email").asText();
-//                            String passReq = rootNode.get("password").asText();
-//
-//                            server.writeConsole("[Cliente #" + clientId + "] LOGIN REQUEST: Email: " + emailReq + " Password: " + passReq.toString());
-//                            
-//                            // Retrieve and verify from DB
-//                            UserDAO userDAO = new UserDAO();
-//                            User retrievedUser = userDAO.getUserByEmail(emailReq);
-//                            
-//                            // If right, send JSON of login successful
-//                            if(retrievedUser.getPassword().equals(passReq)){
-//                                
-//                            } else  {
-//                                
-//                            }
-//                                   
-//                        }
-//                    }
-//                } catch (Exception jsonEx) {
-//                    server.writeConsole("Advertencia: El mensaje recibido no es un JSON válido o está incompleto.");
-//                }
-//
-//                /// Limpia string builder
-//                sb.setLength(0);
-//            }
-//
-//        } catch (IOException e) {
-//            System.getLogger(ClientThread.class.getName()).log(
-//                    System.Logger.Level.ERROR, "Connection error or client disconnected", e);
-//
-//            server.removeClient(clientId);
-//        } finally {
-//            server.removeClient(clientId);
-//        }
-//
-//    }
-//    
     @Override
     public void run() {
 
@@ -150,6 +76,58 @@ public class ClientThread implements Runnable {
                                 server.writeConsole("[Cliente #" + clientId + "] LOGIN FAILURE: For " + emailReq);
                                 out.println("{\"type\": \"LOGIN_ERROR\", \"message\": \"Credenciales incorrectas\"}");
                             }
+                        } else if (tipo.equals("SIGNUP")) {
+
+                            String name = rootNode.get("name").asText();
+                            String emailReq = rootNode.get("email").asText();
+                            String passReq = rootNode.get("password").asText();
+                            String state = rootNode.get("state").asText();
+
+                            server.writeConsole("[Cliente #" + clientId + "] SIGNUP REQUEST: Name" + name + "Email: " + emailReq + " Password: " + passReq);
+
+                            // Retrieve and verify from DB
+                            UserDAO userDAO = new UserDAO();
+                            User newUser = new User(name, emailReq, passReq, state);
+
+                            userDAO.insertUser(newUser);
+
+//                            if SUCCESS
+                            server.writeConsole("[Cliente #" + clientId + "] SIGNUP SUCCESS: For " + emailReq);
+                            // Respuesta al cliente
+                            out.println("{\"type\": \"SIGNUP_SUCCESS\"}");
+
+                            // Validar y responder al cliente
+//                            if (retrievedUser != null && retrievedUser.getPassword().equals(passReq)) {
+//                                server.writeConsole("[Cliente #" + clientId + "] LOGIN SUCCESS: For " + emailReq);
+//                                // Respuesta al cliente (el println agrega automáticamente el \n)
+//                                out.println("{\"type\": \"LOGIN_SUCCESS\", \"message\": \"Bienvenido\"}");
+//                            } else {
+//                                server.writeConsole("[Cliente #" + clientId + "] LOGIN FAILURE: For " + emailReq);
+//                                out.println("{\"type\": \"LOGIN_ERROR\", \"message\": \"Credenciales incorrectas\"}");
+//                            }
+                        } else if (tipo.equals("RECOVER_PASSWORD")) {
+
+                            String emailReq = rootNode.get("email").asText();
+                            String passReq = rootNode.get("password").asText();
+
+                            server.writeConsole("[Cliente #" + clientId + "] RECOVER_PASSWORD_REQUEST: Email: " + emailReq + " Password: " + passReq);
+
+                            // Chreate DAO and attempt to change password
+                            UserDAO userDAO = new UserDAO();
+
+                            if (userDAO.changePassword(emailReq, passReq)) {
+
+                                server.writeConsole("[Cliente #" + clientId + "] RECOVER_PASSWORD_SUCCESS: For " + emailReq);
+                                // Respuesta al cliente (el println agrega automáticamente el \n)
+                                out.println("{\"type\": \"RECOVER_PASSWORD_SUCCESS\"}");
+
+                            } else {
+
+                                server.writeConsole("[Cliente #" + clientId + "] RECOVER_PASSWROD_ERROR: For " + emailReq);
+                                out.println("{\"type\": \"RECOVER_PASSWROD_ERROR\", \"message\": \"El usuario no existe\"}");
+
+                            }
+
                         }
                     }
                 } catch (Exception jsonEx) {
