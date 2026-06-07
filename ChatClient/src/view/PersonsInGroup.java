@@ -81,10 +81,10 @@ public class PersonsInGroup extends JFrame {
             for (UserGroup usuario : grupo.getUsers()) {
                 
                 // ASIGNACIÓN DEL COLOR DEL AVATAR SEGÚN EL ESTADO BOOLEANO DE CONEXIÓN DEL USUARIO
-                Color colorAvatar = usuario.isIsConnected() ? new Color(15, 50, 200) : new Color(165, 210, 255);
+                Color colorAvatar = usuario.getIsConnected() ? new Color(15, 50, 200) : new Color(165, 210, 255);
 
                 // CREACIÓN E INYECCIÓN DE LA FILA DE COMPONENTES DE FORMA DINÁMICA
-                this.agregarIntegranteUI(usuario.getUserName(), colorAvatar);
+                this.agregarIntegranteUI(usuario.getName(), colorAvatar);
             }
         }
         

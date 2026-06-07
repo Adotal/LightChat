@@ -141,11 +141,11 @@ public class GroupChatView extends JFrame {
             UserGroup usuarioAsociado = grupoActual.getUsers().get(indiceUsuario);
 
             // CALCULA EL COLOR ADECUADO DE LA PALETA MEDIANTE EL IDENTIFICADOR DEL USUARIO
-            int indiceColor = Math.abs(usuarioAsociado.getId()) % PALETA_COLORES.length;
+            int indiceColor = Math.abs(usuarioAsociado.getIdUser()) % PALETA_COLORES.length;
             Color colorBurbuja = PALETA_COLORES[indiceColor];
 
             // CREA E INYECTA LOS NUEVOS COMPONENTES VISUALES EN LA COLA GRÁFICA
-            inyectarComponentesMensaje(usuarioAsociado.getUserName(), texto, colorBurbuja);
+            inyectarComponentesMensaje(usuarioAsociado.getName(), texto, colorBurbuja);
             
             // RECONSTRUYE LAS RELACIONES DEL DISEÑO INTERNO CON LA NUEVA BURBUJA
             CerrarYConstruirLayoutInterno();

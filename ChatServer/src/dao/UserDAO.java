@@ -19,7 +19,7 @@ public class UserDAO extends DatabaseConnection {
     // Insert users
     public void insertUser(User user) {
 
-        String sql = "INSERT INTO users (name, email, password, state) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO users (name, email, password, is_connected) VALUES (?, ?, ?, ?)";
 
         try {
             PreparedStatement ps;
@@ -27,7 +27,7 @@ public class UserDAO extends DatabaseConnection {
             ps.setString(1, user.getName());
             ps.setString(2, user.getEmail());
             ps.setString(3, user.getPassword());
-            ps.setString(4, user.getState());
+            ps.setBoolean(4, user.getIsConnected());
             ps.executeUpdate();
         } catch (SQLException ex) {
             System.getLogger(UserDAO.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
@@ -51,7 +51,7 @@ public class UserDAO extends DatabaseConnection {
                         rs.getString("name"),
                         rs.getString("email"),
                         rs.getString("password"),
-                        rs.getString("state"),
+                        rs.getBoolean("is_connected"),
                         rs.getString("last_access")
                 ));
 
@@ -77,7 +77,7 @@ public class UserDAO extends DatabaseConnection {
                         rs.getString("name"),
                         rs.getString("email"),
                         rs.getString("password"),
-                        rs.getString("state"),
+                        rs.getBoolean("is_connected"),
                         rs.getString("last_access")
                 );
             }
@@ -102,7 +102,7 @@ public class UserDAO extends DatabaseConnection {
                         rs.getString("name"),
                         rs.getString("email"),
                         rs.getString("password"),
-                        rs.getString("state"),
+                        rs.getBoolean("is_connected"),
                         rs.getString("last_access")
                 );
             }

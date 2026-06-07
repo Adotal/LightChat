@@ -206,7 +206,7 @@ public class UsersListView extends JFrame {
             panelListaContactos.add(crearFilaGrupo("Nombre del grupo 2"), gbc); gbc.gridy++;
         } else {
             for (User user : listaUsuariosMock) {
-                boolean esAmigo = listaIdAmigosMock.contains(user.getId());
+                boolean esAmigo = listaIdAmigosMock.contains(user.getIdUser());
                 if (pestañaActiva.equals("AMIGOS") && !esAmigo) continue;
                 panelListaContactos.add(crearFilaContacto(user, esAmigo), gbc);
                 gbc.gridy++;
@@ -228,7 +228,7 @@ public class UsersListView extends JFrame {
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(usuario.isIsConnected() ? new Color(37, 68, 196) : new Color(139, 162, 179));
+                g2.setColor(usuario.getIsConnected() ? new Color(37, 68, 196) : new Color(139, 162, 179));
                 g2.fill(new Ellipse2D.Double(0, 0, 32, 32)); 
                 g2.dispose();
             }
@@ -237,7 +237,7 @@ public class UsersListView extends JFrame {
         };
 
         JButton btnAccion = crearBotonAccionContacto(estado);
-        JPanel textos = crearPanelTextos(usuario.getUserName(), "Ultimo mensaje");
+        JPanel textos = crearPanelTextos(usuario.getName(), "Ultimo mensaje");
         
         JPanel content = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 11));
         content.setOpaque(false);

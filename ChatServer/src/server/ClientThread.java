@@ -67,11 +67,25 @@ public class ClientThread implements Runnable {
                             UserDAO userDAO = new UserDAO();
                             User retrievedUser = userDAO.getUserByEmail(emailReq);
 
-                            // Validar y responder al cliente
+                            // Validate password and send client response
                             if (retrievedUser != null && retrievedUser.getPassword().equals(passReq)) {
+
                                 server.writeConsole("[Cliente #" + clientId + "] LOGIN SUCCESS: For " + emailReq);
-                                // Respuesta al cliente (el println agrega automáticamente el \n)
-                                out.println("{\"type\": \"LOGIN_SUCCESS\", \"message\": \"Bienvenido\"}");
+
+                                // Clear the password for security before sending it over the network
+                                retrievedUser.setPassword(null);
+
+                                // Create a dynamic Jackson JSON object
+                                com.fasterxml.jackson.databind.node.ObjectNode responseNode = mapper.createObjectNode();
+                                responseNode.put("type", "LOGIN_SUCCESS");
+                                responseNode.put("message", "Bienvenido");
+                                // Convert User object into a JsonNode and nest it
+                                responseNode.set("user", mapper.valueToTree(retrievedUser));
+
+                                // Convert the entire object node to a string and send it
+                                String jsonResponse = mapper.writeValueAsString(responseNode);
+                                out.println(jsonResponse);
+
                             } else {
                                 server.writeConsole("[Cliente #" + clientId + "] LOGIN FAILURE: For " + emailReq);
                                 out.println("{\"type\": \"LOGIN_ERROR\", \"message\": \"Credenciales incorrectas\"}");
@@ -81,13 +95,13 @@ public class ClientThread implements Runnable {
                             String name = rootNode.get("name").asText();
                             String emailReq = rootNode.get("email").asText();
                             String passReq = rootNode.get("password").asText();
-                            String state = rootNode.get("state").asText();
-
+                            // isConnected is false by default
+                                                        
                             server.writeConsole("[Cliente #" + clientId + "] SIGNUP REQUEST: Name" + name + "Email: " + emailReq + " Password: " + passReq);
 
                             // Retrieve and verify from DB
                             UserDAO userDAO = new UserDAO();
-                            User newUser = new User(name, emailReq, passReq, state);
+                            User newUser = new User(name, emailReq, passReq, false);
 
                             userDAO.insertUser(newUser);
 
