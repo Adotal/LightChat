@@ -41,6 +41,9 @@ desktop.ini
 # Server secrets
 ChatServer/.env
 
+# Client config (host del servidor)
+ChatClient/.env
+
 # SSH private keys
 *.pem
 *.key

@@ -2,11 +2,13 @@ package socket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.BufferedReader;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.Properties;
 import java.util.function.Consumer;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
@@ -25,8 +27,12 @@ public class ClientSocket {
     //  The single, static instance of the class
     private static ClientSocket instance;
 
-    private final String host = "127.0.0.1";
-    private final int port = 1235;
+    // Direccion del servidor. Se lee del archivo .env (clave CHAT_HOST / CHAT_PORT).
+    //   LOCAL  -> CHAT_HOST=127.0.0.1   (server corriendo en tu PC)
+    //   REMOTO -> CHAT_HOST=<IP de la VM de Azure>
+    // Si no hay .env, usa 127.0.0.1:1235 por defecto. Ver .env.example.
+    private final String host;
+    private final int port;
     private Socket clientSocket;
 
     // The active listener for UI updates
@@ -37,6 +43,22 @@ public class ClientSocket {
 
     // PRIVATE constructor prevents from using 'new ClientSocket()'
     private ClientSocket() {
+        // Carga la config del servidor desde .env (con fallback al entorno del sistema).
+        Properties props = new Properties();
+        try (FileInputStream fis = new FileInputStream(".env")) {
+            props.load(fis);
+        } catch (IOException e) {
+            System.out.println("[INFO] No se encontro .env del cliente. Usando valores por defecto (127.0.0.1:1235).");
+        }
+
+        // .env primero, luego variable de entorno del sistema, luego valor por defecto.
+        String h = props.getProperty("CHAT_HOST", System.getenv("CHAT_HOST"));
+        String p = props.getProperty("CHAT_PORT", System.getenv("CHAT_PORT"));
+
+        this.host = (h != null && !h.isBlank()) ? h.trim() : "127.0.0.1";
+        this.port = (p != null && !p.isBlank()) ? Integer.parseInt(p.trim()) : 1235;
+
+        System.out.println("[INFO] Servidor configurado en " + this.host + ":" + this.port);
     }
 
     // Synchronized method to get the single instance
