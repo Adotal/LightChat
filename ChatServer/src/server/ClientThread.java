@@ -150,6 +150,35 @@ public class ClientThread implements Runnable {
                                 server.writeConsole("[Cliente #" + clientId + "] LOGIN FAILURE: For " + emailReq);
                                 out.println("{\"type\": \"LOGIN_ERROR\", \"message\": \"Credenciales incorrectas\"}");
                             }
+                        } else if (tipo.equals("SIGNUP")) {
+
+                            String name = rootNode.get("name").asText();
+                            String emailReq = rootNode.get("email").asText();
+                            String passReq = rootNode.get("password").asText();
+                            String state = rootNode.get("state").asText();
+
+                            server.writeConsole("[Cliente #" + clientId + "] SIGNUP REQUEST: Name" + name + "Email: " + emailReq + " Password: " + passReq);
+
+                            // Retrieve and verify from DB
+                            UserDAO userDAO = new UserDAO();
+                            User newUser = new User(name, emailReq, passReq, state);
+
+                            userDAO.insertUser(newUser);
+
+//                            if SUCCESS
+                            server.writeConsole("[Cliente #" + clientId + "] SIGNUP SUCCESS: For " + emailReq);
+                            // Respuesta al cliente
+                            out.println("{\"type\": \"SIGNUP_SUCCESS\"}");
+
+                            // Validar y responder al cliente
+//                            if (retrievedUser != null && retrievedUser.getPassword().equals(passReq)) {
+//                                server.writeConsole("[Cliente #" + clientId + "] LOGIN SUCCESS: For " + emailReq);
+//                                // Respuesta al cliente (el println agrega automáticamente el \n)
+//                                out.println("{\"type\": \"LOGIN_SUCCESS\", \"message\": \"Bienvenido\"}");
+//                            } else {
+//                                server.writeConsole("[Cliente #" + clientId + "] LOGIN FAILURE: For " + emailReq);
+//                                out.println("{\"type\": \"LOGIN_ERROR\", \"message\": \"Credenciales incorrectas\"}");
+//                            }
                         }
                     }
                 } catch (Exception jsonEx) {

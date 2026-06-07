@@ -24,6 +24,14 @@ public class User {
         this.state = state;
         this.lastAccess = lastAccess;
     }
+      public User(String name, String email, String password, String state) {
+        this.idUser = idUser;
+        this.name = name;
+        this.email = email;
+        this.password = password;
+        this.state = state;
+        this.lastAccess = lastAccess;
+    }
 
     public int getIdUser() { return idUser; }
     public void setIdUser(int idUser) { this.idUser = idUser; }

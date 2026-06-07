@@ -128,15 +128,7 @@ public class LoginView extends JFrame {
                     String jsonString = mapper.writeValueAsString(request);
 
                     // Enviar el JSON al servidor
-                    ClientSocket.getInstance().sendText(jsonString);
-                    
-                    // On login succes
-//                    new UsersListView().setVisible(true);
-//                    dispose();
-
-                    // On login failure                    
-//                    JOptionPane.showMessageDialog(this, "Error en login: Credenciales inválidas");
-//                    ++errorCount;
+                    ClientSocket.getInstance().sendText(jsonString);                    
 
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(this, "Error al enviar solicitud: " + ex.getMessage());
