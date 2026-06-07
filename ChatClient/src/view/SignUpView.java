@@ -5,7 +5,6 @@ import java.awt.*;
 import java.awt.geom.RoundRectangle2D;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import model.dbrequest.LoginRequest;
 import model.dbrequest.SignUpRequest;
 import socket.ClientSocket;
 

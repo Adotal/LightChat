@@ -4,6 +4,12 @@
     { "path": "ChatServer" }
   ],
   "settings": {
+    "java.project.referencedLibraries": [
+      "/home/zihowl/Documentos/8vo/Programacion_Avanzada_II/App-de-Mensajeria-PA-II/lib/jackson-annotations-2.9.9.jar",
+      "/home/zihowl/Documentos/8vo/Programacion_Avanzada_II/App-de-Mensajeria-PA-II/lib/jackson-core-2.9.9.jar",
+      "/home/zihowl/Documentos/8vo/Programacion_Avanzada_II/App-de-Mensajeria-PA-II/lib/jackson-databind-2.9.9.jar",
+      "/home/zihowl/Documentos/8vo/Programacion_Avanzada_II/App-de-Mensajeria-PA-II/lib/mysql-connector-j-9.7.0.jar"
+    ],
     "java.import.exclusions": [
       "**/node_modules/**",
       "**/.metadata/**",

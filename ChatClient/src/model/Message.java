@@ -17,7 +17,7 @@ public class Message {
 
     }
 
-    public Message(User userSender, User userReciver, String text, LocalDateTime sendedAt) {
+    public Message(User userSender, User userReceiver, String text, LocalDateTime sendedAt) {
         this.userSender = userSender;
         this.userReceiver = userReceiver;
         this.text = text;
