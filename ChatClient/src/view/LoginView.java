@@ -7,7 +7,7 @@ import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import model.LoginRequest;
+import model.dbrequest.LoginRequest;
 import socket.ClientSocket;
 
 /**
@@ -22,7 +22,7 @@ public class LoginView extends JFrame {
     private JButton btnLogin;
     private JLabel lblIrARegistro;
     private JLabel lblConStatus;
-    
+
     private int errorCount = 0;
 
     public LoginView() {
@@ -46,11 +46,11 @@ public class LoginView extends JFrame {
         gbc.gridx = 0;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 1.0;
-        
-        lblConStatus = new JLabel("<html><div style='text-align:center;'>Conectando...</div></html>");        
+
+        lblConStatus = new JLabel("<html><div style='text-align:center;'>Conectando...</div></html>");
         lblConStatus.setFont(new Font("Segoe UI", Font.BOLD, 18));
         lblConStatus.setForeground(Color.WHITE);
-        lblConStatus.setHorizontalAlignment(SwingConstants.CENTER);        
+        lblConStatus.setHorizontalAlignment(SwingConstants.CENTER);
         gbc.gridy = 0;
         gbc.insets = new Insets(0, 0, 100, 0);
         panelPrincipal.add(lblConStatus, gbc);
@@ -74,7 +74,7 @@ public class LoginView extends JFrame {
         gbc.insets = new Insets(0, 0, 24, 0);
         panelPrincipal.add(txtEmail, gbc);
 
-        JLabel lblPass = crearLabelCampo("PASSWORD");
+        JLabel lblPass = crearLabelCampo("CONTRASEÑA");
         gbc.gridy = 4;
         gbc.insets = new Insets(0, 4, 8, 4);
         panelPrincipal.add(lblPass, gbc);
@@ -106,36 +106,32 @@ public class LoginView extends JFrame {
         btnLogin.setPreferredSize(new Dimension(0, 56));
 
         btnLogin.addActionListener(e -> {
+
+            // Get data from textFields
+            String email = txtEmail.getText();
+            // getPassword() returns char[], parse to String
+            String password = new String(txtPassword.getPassword());
+
+            if (email.isEmpty() || password.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Por favor llena ambos campos.");
+                return;
+            }
+
+            // Send login request
             try {
-                
-                // Get data from textFields
-                String email = txtEmail.getText();
-                // getPassword() returns char[], parse to String
-                String password = new String(txtPassword.getPassword());
+                // Create object from data
+                LoginRequest request = new LoginRequest(email, password);
 
-                if (email.isEmpty() || password.isEmpty()) {
-                    JOptionPane.showMessageDialog(this, "Por favor llena ambos campos.");
-                    return;
-                }
-                                
-                // Send login request
-                try {
-                    // Create object from data
-                    LoginRequest request = new LoginRequest(email, password);
+                // Convert object to JSON usign Jackson
+                ObjectMapper mapper = new ObjectMapper();
+                String jsonString = mapper.writeValueAsString(request);
 
-                    // Convert object to JSON usign Jackson
-                    ObjectMapper mapper = new ObjectMapper();
-                    String jsonString = mapper.writeValueAsString(request);
+                // Enviar el JSON al servidor
+                ClientSocket.getInstance().sendText(jsonString);
 
-                    // Enviar el JSON al servidor
-                    ClientSocket.getInstance().sendText(jsonString);                    
-
-                } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(this, "Error al enviar solicitud: " + ex.getMessage());
-                    ex.printStackTrace();
-                }
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "UsersListView no encontrada.");
+                JOptionPane.showMessageDialog(this, "Error al enviar solicitud: " + ex.getMessage());
+                ex.printStackTrace();
             }
         });
 
@@ -174,8 +170,14 @@ public class LoginView extends JFrame {
         lblIrARecuperar.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
-                new RecoverPasswordView().setVisible(true); // Abre la pantalla de recuperación
-                dispose();                                 // Cierra el Login
+                if (txtEmail.getText().isEmpty()) {
+                    JOptionPane.showMessageDialog(LoginView.this, "Debes escribir un correo para poder recuperar contraseña");
+                } else {
+                    // Abre la pantalla de recuperación de contraseña
+                    new RecoverPasswordView(txtEmail.getText()).setVisible(true);
+                    // Cierra actual
+                    dispose();
+                }
             }
         });
 
@@ -276,7 +278,7 @@ public class LoginView extends JFrame {
 
         // Tell the client to send updates to this frame's label
         client.setStatusListener(mensaje -> lblConStatus.setText(mensaje));
-        
+
         // Server responess Mapping
         client.setMessageListener(rawJson -> {
             try {
@@ -289,15 +291,29 @@ public class LoginView extends JFrame {
                     if (tipo.equals("LOGIN_SUCCESS")) {
                         // On Login success, open the list view and close login window
                         new UsersListView().setVisible(true);
-                        this.dispose(); 
-                        
+                        this.dispose();
+
                     } else if (tipo.equals("LOGIN_ERROR")) {
                         // Extract custom error message from server if it exists
                         String errorMsg = rootNode.has("message") ? rootNode.get("message").asText() : "Credenciales inválidas";
-                        
+
                         // On Login failure, display dialog cleanly
                         JOptionPane.showMessageDialog(this, "Error en login: " + errorMsg, "Error de acceso", JOptionPane.ERROR_MESSAGE);
                         ++errorCount;
+
+                        // Si se equivocó 3 veces ve a recuperar contraseña
+                        if (errorCount == 3) {
+                            errorCount = 0;
+
+                            if (txtEmail.getText().isEmpty()) {
+                                JOptionPane.showMessageDialog(this, "Debes escribir un correo para poder recuperar contraseña");
+                            } else {
+                                // Abre la pantalla de recuperación
+                                new RecoverPasswordView(txtEmail.getText()).setVisible(true);
+                                // Cierra actual
+                                dispose();
+                            }
+                        }
                     }
                 }
             } catch (Exception ex) {

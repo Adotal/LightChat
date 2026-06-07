@@ -1,19 +1,19 @@
-package model;
+package model.dbrequest;
 
 /**
  *
  * @author adotal
  */
-
-public class LoginRequest {
-    private String type = "LOGIN"; // Identificador del tipo de solicitud
+public class RecoverPasswordRequest {
+    // Identificador del tipo de solicitud
+    private String type = "RECOVER_PASSWORD";
     private String email;
     private String password;
 
     // Jackson necesita un constructor vacío
-    public LoginRequest() {}
+    public RecoverPasswordRequest() {}
 
-    public LoginRequest(String email, String password) {
+    public RecoverPasswordRequest(String email, String password) {
         this.email = email;
         this.password = password;
     }
