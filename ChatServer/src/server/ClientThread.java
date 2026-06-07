@@ -109,22 +109,22 @@ public class ClientThread implements Runnable {
                             UserDAO userDAO = new UserDAO();
                             User newUser = new User(name, emailReq, passReq, false);
 
-                            userDAO.insertUser(newUser);
+                            if (userDAO.insertUser(newUser)) {
 
-//                            if SUCCESS
-                            server.writeConsole("[Cliente #" + clientId + "] SIGNUP SUCCESS: For " + emailReq);
-                            // Respuesta al cliente
-                            out.println("{\"type\": \"SIGNUP_SUCCESS\"}");
+                                // If SUCCESS
+                                server.writeConsole("[Cliente #" + clientId + "] SIGNUP_SUCCESS: For " + emailReq);
+                                // Respuesta al cliente
+                                out.println("{\"type\": \"SIGNUP_SUCCESS\"}");
 
-                            // Validar y responder al cliente
-//                            if (retrievedUser != null && retrievedUser.getPassword().equals(passReq)) {
-//                                server.writeConsole("[Cliente #" + clientId + "] LOGIN SUCCESS: For " + emailReq);
-//                                // Respuesta al cliente (el println agrega automáticamente el \n)
-//                                out.println("{\"type\": \"LOGIN_SUCCESS\", \"message\": \"Bienvenido\"}");
-//                            } else {
-//                                server.writeConsole("[Cliente #" + clientId + "] LOGIN FAILURE: For " + emailReq);
-//                                out.println("{\"type\": \"LOGIN_ERROR\", \"message\": \"Credenciales incorrectas\"}");
-//                            }
+                            } else {
+
+                                // If SUCCESS
+                                server.writeConsole("[Cliente #" + clientId + "] SIGNUP_ERROR: For " + emailReq);
+                                // Respuesta al cliente
+                                out.println("{\"type\": \"SIGNUP_ERROR\"}");
+
+                            }
+
                         } else if (tipo.equals("RECOVER_PASSWORD")) {
 
                             String emailReq = rootNode.get("email").asText();
@@ -162,10 +162,10 @@ public class ClientThread implements Runnable {
                             // Return success
                             out.println("{\"type\": \"LOGOUT_SUCCESS\"}");
                         } else if (tipo.equals("FETCH_ALL_USERS")) {
-                                                        
+
                             // Get email not to load
                             String emailReq = rootNode.get("email").asText();
-                            
+
                             UserDAO userDAO = new UserDAO();
                             ArrayList<User> activeUsers = userDAO.getAllUsersNotEmail(emailReq);
 

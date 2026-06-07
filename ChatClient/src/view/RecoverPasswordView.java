@@ -67,7 +67,7 @@ public class RecoverPasswordView extends JFrame {
         gbc.insets = new Insets(0, 4, 8, 4);
         panelPrincipal.add(lblPass, gbc);
 
-        txtNuevaPassword = crearCampoPassword("******");
+        txtNuevaPassword = crearCampoPassword("");
         gbc.gridy = 3;
         gbc.insets = new Insets(0, 0, 60, 0);
         panelPrincipal.add(txtNuevaPassword, gbc);

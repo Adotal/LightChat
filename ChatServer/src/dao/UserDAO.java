@@ -17,7 +17,7 @@ public class UserDAO extends DatabaseConnection {
     }
 
     // Insert users
-    public void insertUser(User user) {
+    public boolean insertUser(User user) {
 
         String sql = "INSERT INTO users (name, email, password, is_connected) VALUES (?, ?, ?, ?)";
 
@@ -31,7 +31,9 @@ public class UserDAO extends DatabaseConnection {
             ps.executeUpdate();
         } catch (SQLException ex) {
             System.getLogger(UserDAO.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+            return false;
         }
+        return true;
 
     }
 

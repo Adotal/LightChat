@@ -349,10 +349,10 @@ public class SignUpView extends JFrame {
 
                     } else if (tipo.equals("SIGNUP_ERROR")) {
                         // Extract custom error message from server if it exists
-                        String errorMsg = rootNode.has("message") ? rootNode.get("message").asText() : "Registro no completado";
+                        String errorMsg = rootNode.has("message") ? rootNode.get("message").asText() : "Correo ya utilizado";
 
                         // On Login failure, display dialog cleanly
-                        JOptionPane.showMessageDialog(this, "Error en signup: " + errorMsg, "Error de acceso", JOptionPane.ERROR_MESSAGE);
+                        JOptionPane.showMessageDialog(this, "Error en signup: " + errorMsg);
                     }
                 }
             } catch (Exception ex) {
