@@ -28,9 +28,7 @@ public class JavaServer {
 
         new Thread(() -> {
 
-            try {
-                ServerSocket ss;
-                ss = new ServerSocket(1235);
+            try (ServerSocket ss = new ServerSocket(PORT)) {
                 writeConsole("Servidor iniciado en puerto " + PORT);
 
                 while (!ss.isClosed()) {

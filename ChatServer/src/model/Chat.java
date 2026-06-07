@@ -30,6 +30,14 @@ public class Chat {
         this.id = id;
     }
 
+    public User getReceiverUser() {
+        return receiverUser;
+    }
+
+    public void setReceiverUser(User receiverUser) {
+        this.receiverUser = receiverUser;
+    }
+
     public ArrayList<Message> getMessages() {
         return messages;
     }

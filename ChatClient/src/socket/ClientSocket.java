@@ -1,6 +1,5 @@
 package socket;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -10,7 +9,6 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.Properties;
 import java.util.function.Consumer;
-import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
 /**
@@ -119,7 +117,6 @@ public class ClientSocket {
      * las respuestas del servidor que finalizan con un salto de línea (\n).
      */
     private void listen() {
-        ObjectMapper mapper = new ObjectMapper();
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(clientSocket.getInputStream(), StandardCharsets.UTF_8))) {
 

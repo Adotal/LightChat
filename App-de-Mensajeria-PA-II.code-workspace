@@ -1,0 +1,16 @@
+{
+  "folders": [
+    { "path": "ChatClient" },
+    { "path": "ChatServer" }
+  ],
+  "settings": {
+    "java.import.exclusions": [
+      "**/node_modules/**",
+      "**/.metadata/**",
+      "**/archetype-resources/**",
+      "**/META-INF/maven/**",
+      "**/backend/**",
+      "**/frontend/**"
+    ]
+  }
+}
