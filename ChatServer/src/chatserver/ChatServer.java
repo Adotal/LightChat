@@ -2,6 +2,7 @@ package chatserver;
 
 import dao.MessageDAO;
 import dao.UserDAO;
+import java.util.ArrayList;
 import model.Message;
 import model.User;
 import server.JavaServer;
@@ -28,7 +29,10 @@ public class ChatServer {
         User newUser = new User(0, "Adrián", "adrian@example.com", "1234", "connected", null);
         userDAO.insertUser(newUser);*/
         // Consultar usuarios
-        for (User u : userDAO.getAllUsers()) {
+        
+        ArrayList<User> list;
+        list = userDAO.getAllUsers();
+        for (User u : list) {
             System.out.println(u.getIdUser() + " - " + u.getName() + " - "
                     + u.getEmail() + " - " + u.getIsConnected()+ " - " + u.getLastAccess());
         }

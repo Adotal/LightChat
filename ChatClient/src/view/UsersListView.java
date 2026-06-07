@@ -1,5 +1,7 @@
 package view;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.awt.*;
@@ -43,7 +45,7 @@ public class UsersListView extends JFrame {
         initSocket();
         loadData();
         configurarEstilos();
-        cargarContenidoSegunPestaña();
+        loadContentAccordingToTab();
     }
 
     private void initComponents() {
@@ -212,7 +214,7 @@ public class UsersListView extends JFrame {
             ObjectMapper mapper = new ObjectMapper();
             ObjectNode request = mapper.createObjectNode();
             request.put("type", "FETCH_ALL_USERS");
-            request.put("id", SessionManager.getInstance().getCurrentUser().getIdUser());
+            request.put("email", SessionManager.getInstance().getCurrentUser().getEmail());
 
             String json = mapper.writeValueAsString(request);
             // Enviar el JSON al servidor
@@ -232,7 +234,7 @@ public class UsersListView extends JFrame {
 //        listaIdAmigosMock.add(3);
     }
 
-    private void cargarContenidoSegunPestaña() {
+    private void loadContentAccordingToTab() {
         panelListaContactos.removeAll();
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.gridx = 0;
@@ -394,7 +396,7 @@ public class UsersListView extends JFrame {
         btn.addActionListener(e -> {
             pestañaActiva = id;
             panelHeaderTabs.repaint();
-            cargarContenidoSegunPestaña();
+            loadContentAccordingToTab();
         });
         return btn;
     }
@@ -523,7 +525,7 @@ public class UsersListView extends JFrame {
         client.setMessageListener(rawJson -> {
             try {
                 ObjectMapper mapper = new ObjectMapper();
-                com.fasterxml.jackson.databind.JsonNode rootNode = mapper.readTree(rawJson);
+                JsonNode rootNode = mapper.readTree(rawJson);
 
                 if (rootNode.has("type")) {
                     String tipo = rootNode.get("type").asText();
@@ -537,6 +539,23 @@ public class UsersListView extends JFrame {
                         // Return login
                         new LoginView().setVisible(true);
                         dispose();
+                    } else if (tipo.equals("UPDATE_USERS_LIST")) {
+
+                        if (rootNode.has("users")) {
+
+                            //  Use TypeReference to preserve the target collection types
+                            ArrayList<User> downloadedUsersList = mapper.convertValue(
+                                    rootNode.get("users"),
+                                    new TypeReference<ArrayList<User>>() {
+                            }
+                            );
+
+                            // ArrayList<User> is full
+                            System.out.println("Successfully loaded " + downloadedUsersList.size() + " users.");
+                            listaUsuariosMock = downloadedUsersList;
+                            loadContentAccordingToTab();
+                        }
+
                     }
                 }
             } catch (Exception ex) {

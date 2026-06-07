@@ -1,9 +1,11 @@
 package server;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import dao.UserDAO;
 import java.io.IOException;
 import java.net.Socket;
+import java.util.ArrayList;
 import model.User;
 
 /**
@@ -159,6 +161,24 @@ public class ClientThread implements Runnable {
                             // HERE ALL TODOS MESSAGES WITH EMAIL emailReq SHOULD BE DELETED
                             // Return success
                             out.println("{\"type\": \"LOGOUT_SUCCESS\"}");
+                        } else if (tipo.equals("FETCH_ALL_USERS")) {
+                                                        
+                            // Get email not to load
+                            String emailReq = rootNode.get("email").asText();
+                            
+                            UserDAO userDAO = new UserDAO();
+                            ArrayList<User> activeUsers = userDAO.getAllUsersNotEmail(emailReq);
+
+                            // Create the wrapper envelope JSON object 
+                            ObjectNode response = mapper.createObjectNode();
+                            response.put("type", "UPDATE_USERS_LIST");
+
+                            // Convert the ArrayList directly into a JSON Array Node
+                            response.set("users", mapper.valueToTree(activeUsers));
+
+                            // Send it to socket
+                            String rawJsonToSend = mapper.writeValueAsString(response);
+                            out.println(rawJsonToSend);
                         }
                     }
                 } catch (Exception jsonEx) {
