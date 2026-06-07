@@ -41,5 +41,9 @@ desktop.ini
 # Server secrets
 ChatServer/.env
 
+# SSH private keys
+*.pem
+*.key
+
 # Do not exclude lib/ (contains mysql-connector)
 !lib/*

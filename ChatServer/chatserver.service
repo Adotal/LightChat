@@ -1,0 +1,25 @@
+# Servicio systemd para ejecutar el ChatServer 24/7 en la VM de Azure.
+#
+# Instalación (una sola vez, en la VM):
+#   sudo cp chatserver.service /etc/systemd/system/chatserver.service
+#   # Edita WorkingDirectory/User abajo si tu ruta o usuario son distintos
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now chatserver
+#
+# Ver logs:    journalctl -u chatserver -f
+# Reiniciar:   sudo systemctl restart chatserver
+
+[Unit]
+Description=ChatServer Java (App de Mensajeria PA-II)
+After=network.target
+
+[Service]
+# Ajusta esta ruta y el usuario a los de tu VM
+WorkingDirectory=/home/zihowl/App-de-Mensajeria-PA-II/ChatServer
+ExecStart=/usr/bin/java -cp dist/ChatServer.jar:../lib/* chatserver.ChatServer
+User=zihowl
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
