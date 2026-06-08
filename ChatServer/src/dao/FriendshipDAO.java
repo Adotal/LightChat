@@ -51,20 +51,57 @@ public class FriendshipDAO extends DatabaseConnection {
 
         String sql = "INSERT INTO friendships (id_sender, id_receiver, status) "
                 + "VALUES (?, ?, 'PENDING')";
-        try {
-            PreparedStatement ps = getCon().prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+        try (PreparedStatement ps = getCon().prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, idSender);
             ps.setInt(2, idReceiver);
-            ps.executeUpdate();
-            ResultSet keys = ps.getGeneratedKeys();
-            if (keys.next()) {
-                int id = keys.getInt(1);
-                System.out.println("[FriendshipDAO] Solicitud " + id + " enviada de "
-                        + idSender + " a " + idReceiver);
-                return id;
+            int affected = ps.executeUpdate();
+            if (affected == 0) {
+                // El INSERT no afectó ninguna fila: la solicitud no se creó.
+                return -1;
             }
+
+            // El éxito se determina por filas afectadas, no por la presencia de
+            // clave generada: si la tabla no tiene AUTO_INCREMENT, el INSERT
+            // igual es válido y no debe reportarse como fallo.
+            int id = -1;
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                if (keys.next()) {
+                    id = keys.getInt(1);
+                }
+            }
+            if (id == -1) {
+                // Sin clave autogenerada: recuperar el id real de la solicitud
+                // recién insertada para devolver un identificador utilizable.
+                id = getRequestId(idSender, idReceiver);
+            }
+            System.out.println("[FriendshipDAO] Solicitud " + id + " enviada de "
+                    + idSender + " a " + idReceiver);
+            return id;
         } catch (SQLException e) {
             System.out.println("[FriendshipDAO] Error al enviar solicitud: " + e.getMessage());
+        }
+        return -1;
+    }
+
+    /**
+     * Devuelve el id de la solicitud (más reciente) entre dos usuarios en esa
+     * dirección, o -1 si no existe. Sirve de respaldo cuando el driver no
+     * devuelve la clave autogenerada del INSERT.
+     */
+    private int getRequestId(int idSender, int idReceiver) {
+        String sql = "SELECT id_friendship FROM friendships "
+                + "WHERE id_sender = ? AND id_receiver = ? "
+                + "ORDER BY id_friendship DESC LIMIT 1";
+        try (PreparedStatement ps = getCon().prepareStatement(sql)) {
+            ps.setInt(1, idSender);
+            ps.setInt(2, idReceiver);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("id_friendship");
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("[FriendshipDAO] Error al recuperar id de solicitud: " + e.getMessage());
         }
         return -1;
     }

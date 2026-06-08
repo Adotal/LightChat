@@ -33,10 +33,10 @@ public class User {
         this.isConnected = isConnected;
     }
 
-    public User(int id, String name, String email, boolean isConnected) {
+    public User(int idUser, String name, String email, boolean isConnected) {
+        this.idUser = idUser;
         this.name = name;
         this.email = email;
-        this.password = password;
         this.isConnected = isConnected;
     }
 
