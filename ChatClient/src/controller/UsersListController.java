@@ -1,8 +1,10 @@
 package controller;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.ArrayList;
+import java.util.function.Consumer;
 import model.Group;
 import model.SessionManager;
 import model.User;
@@ -29,15 +31,32 @@ public class UsersListController {
 
     private final View view;
 
+    // Handlers registrados (type -> handler) para desregistrarlos al cerrar la
+    // vista y evitar fugas en el ServerDispatcher singleton.
+    private final java.util.Map<String, Consumer<JsonNode>> registered = new java.util.LinkedHashMap<>();
+
     public UsersListController(View view) {
         this.view = view;
         registerHandlers();
     }
 
-    private void registerHandlers() {
-        ServerDispatcher dispatcher = ServerDispatcher.getInstance();
+    /** Registra un handler y guarda su referencia para limpieza posterior. */
+    private void track(String type, Consumer<JsonNode> handler) {
+        registered.put(type, handler);
+        ServerDispatcher.getInstance().register(type, handler);
+    }
 
-        dispatcher.register("UPDATE_USERS_LIST", root -> {
+    /** Desregistra todos los handlers de red; llamar al cerrar la vista. */
+    public void dispose() {
+        ServerDispatcher dispatcher = ServerDispatcher.getInstance();
+        for (java.util.Map.Entry<String, Consumer<JsonNode>> e : registered.entrySet()) {
+            dispatcher.unregister(e.getKey(), e.getValue());
+        }
+        registered.clear();
+    }
+
+    private void registerHandlers() {
+        track("UPDATE_USERS_LIST", root -> {
             if (!root.has("users")) {
                 return;
             }
@@ -46,7 +65,7 @@ public class UsersListController {
             view.onUsersLoaded(users);
         });
 
-        dispatcher.register("FRIENDS_LIST", root -> {
+        track("FRIENDS_LIST", root -> {
             if (!root.has("friends")) {
                 return;
             }
@@ -55,10 +74,10 @@ public class UsersListController {
             view.onFriendsLoaded(friends);
         });
 
-        dispatcher.register("GROUPS_LIST", root -> {
+        track("GROUPS_LIST", root -> {
             ArrayList<Group> groups = new ArrayList<>();
             if (root.has("groups")) {
-                for (com.fasterxml.jackson.databind.JsonNode g : root.get("groups")) {
+                for (JsonNode g : root.get("groups")) {
                     groups.add(new Group(g.get("id").asInt(), g.get("title").asText()));
                 }
             }
@@ -66,26 +85,26 @@ public class UsersListController {
         });
 
         // El servidor avisa que la amistad cambió: refrescar amigos y usuarios.
-        dispatcher.register("FRIENDS_LIST_UPDATED", root -> {
+        track("FRIENDS_LIST_UPDATED", root -> {
             fetchFriends();
             fetchAllUsers();
         });
 
         // Cambios de grupos: refrescar lista de grupos.
-        dispatcher.register("GROUPS_LIST_UPDATED", root -> fetchGroups());
-        dispatcher.register("GROUP_DELETED", root -> fetchGroups());
+        track("GROUPS_LIST_UPDATED", root -> fetchGroups());
+        track("GROUP_DELETED", root -> fetchGroups());
 
-        dispatcher.register("FRIEND_REQUEST_SENT", root ->
+        track("FRIEND_REQUEST_SENT", root ->
                 view.onFriendRequestResult(true,
                         root.has("message") ? root.get("message").asText() : "Solicitud enviada."));
 
-        dispatcher.register("FRIEND_REQUEST_ERROR", root ->
+        track("FRIEND_REQUEST_ERROR", root ->
                 view.onFriendRequestResult(false,
                         root.has("message") ? root.get("message").asText() : "No se pudo enviar la solicitud."));
 
-        dispatcher.register("NEW_FRIEND_REQUEST", root -> view.onNewFriendRequest());
+        track("NEW_FRIEND_REQUEST", root -> view.onNewFriendRequest());
 
-        dispatcher.register("LOGOUT_SUCCESS", root -> {
+        track("LOGOUT_SUCCESS", root -> {
             SessionManager.getInstance().logout();
             view.onLogoutSuccess();
         });

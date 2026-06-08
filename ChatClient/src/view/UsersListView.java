@@ -51,6 +51,14 @@ public class UsersListView extends JFrame implements UsersListController.View {
         loadContentAccordingToTab();
     }
 
+    @Override
+    public void dispose() {
+        if (controller != null) {
+            controller.dispose();
+        }
+        super.dispose();
+    }
+
     private void initComponents() {
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         setTitle("LightChat - Contactos");

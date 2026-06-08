@@ -639,6 +639,43 @@ public class ClientThread implements Runnable {
     }
 
     /**
+     * Elimina un grupo por completo y notifica a todos los implicados.
+     *
+     * No depende de ON DELETE CASCADE (poco confiable ante drift de esquema):
+     * borra explícitamente la conversación (mensajes + miembros + conversación),
+     * las invitaciones y finalmente el grupo. Reúne a los destinatarios ANTES de
+     * borrar y les envía GROUP_DELETED para que no quede rastro en la UI.
+     */
+    private void deleteGroupAndNotify(int idGroup, ObjectMapper mapper) {
+        try {
+            GroupDAO groupDAO = new GroupDAO();
+            GroupInvitationDAO invDAO = new GroupInvitationDAO();
+            List<Integer> toNotify = invDAO.getInvitedUserIds(idGroup);
+            int ownerId = groupDAO.getOwnerId(idGroup);
+
+            int idConv = new ConversationDAO().getConversationIdByGroup(idGroup);
+            if (idConv != -1) {
+                new ConversationDAO().deleteConversation(idConv);
+            }
+            invDAO.deleteByGroup(idGroup);
+            groupDAO.deleteGroup(idGroup);
+
+            ObjectNode n = mapper.createObjectNode();
+            n.put("type", "GROUP_DELETED");
+            n.put("group_id", idGroup);
+            String s = mapper.writeValueAsString(n);
+            for (int uid : toNotify) {
+                pushToUser(uid, s);
+            }
+            if (ownerId != -1) {
+                pushToUser(ownerId, s);
+            }
+        } catch (Exception e) {
+            server.writeConsole("[SERVER] deleteGroupAndNotify: " + e.getMessage());
+        }
+    }
+
+    /**
      * Regla de permanencia (RQNF71/72/79): un grupo solo sobrevive si puede
      * alcanzar ≥3 miembros (aceptados incluido el creador + invitaciones aún
      * pendientes). Si no, se elimina y se notifica a todos los implicados.
@@ -654,19 +691,7 @@ public class ClientThread implements Runnable {
             int approved = groupDAO.countApprovedMembers(idGroup); // incluye al creador
             int pending = invDAO.countPending(idGroup);
             if (approved + pending < 3) {
-                // Reunir a quién avisar antes de borrar en cascada
-                List<Integer> toNotify = invDAO.getInvitedUserIds(idGroup);
-                int ownerId = groupDAO.getOwnerId(idGroup);
-                groupDAO.deleteGroup(idGroup);
-
-                ObjectNode n = mapper.createObjectNode();
-                n.put("type", "GROUP_DELETED");
-                n.put("group_id", idGroup);
-                String s = mapper.writeValueAsString(n);
-                for (int uid : toNotify) {
-                    pushToUser(uid, s);
-                }
-                pushToUser(ownerId, s);
+                deleteGroupAndNotify(idGroup, mapper);
                 server.logEvent("GROUP_DELETED", "Grupo " + idGroup + " eliminado por regla de permanencia (<3 miembros).");
                 return true;
             }
@@ -868,17 +893,7 @@ public class ClientThread implements Runnable {
 
             if (groupDAO.isOwner(idGroup, userId)) {
                 // El creador abandona => se elimina el grupo (RQNF77)
-                GroupInvitationDAO invDAO = new GroupInvitationDAO();
-                List<Integer> toNotify = invDAO.getInvitedUserIds(idGroup);
-                groupDAO.deleteGroup(idGroup);
-                ObjectNode n = mapper.createObjectNode();
-                n.put("type", "GROUP_DELETED");
-                n.put("group_id", idGroup);
-                String s = mapper.writeValueAsString(n);
-                for (int uid : toNotify) {
-                    pushToUser(uid, s);
-                }
-                pushToUser(userId, s);
+                deleteGroupAndNotify(idGroup, mapper);
                 server.logEvent("GROUP_LEFT", "Creador User#" + userId + " abandonó y eliminó grupo " + idGroup);
                 return;
             }
@@ -915,18 +930,7 @@ public class ClientThread implements Runnable {
                 sendError(mapper, "GROUP_ERROR", "Solo el creador puede eliminar el grupo.");
                 return;
             }
-            GroupInvitationDAO invDAO = new GroupInvitationDAO();
-            List<Integer> toNotify = invDAO.getInvitedUserIds(idGroup);
-            groupDAO.deleteGroup(idGroup);
-
-            ObjectNode n = mapper.createObjectNode();
-            n.put("type", "GROUP_DELETED");
-            n.put("group_id", idGroup);
-            String s = mapper.writeValueAsString(n);
-            for (int uid : toNotify) {
-                pushToUser(uid, s);
-            }
-            pushToUser(userId, s);
+            deleteGroupAndNotify(idGroup, mapper);
             server.logEvent("GROUP_DELETED", "Creador User#" + userId + " eliminó grupo " + idGroup);
         } catch (Exception e) {
             sendError(mapper, "GROUP_ERROR", "Error al eliminar el grupo.");

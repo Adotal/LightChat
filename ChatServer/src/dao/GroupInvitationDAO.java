@@ -204,4 +204,16 @@ public class GroupInvitationDAO extends DatabaseConnection {
             System.out.println("[GroupInvitationDAO] Error al eliminar invitación: " + e.getMessage());
         }
     }
+
+    /** Elimina todas las invitaciones de un grupo (al eliminar el grupo). */
+    public void deleteByGroup(int idGroup) {
+        String sql = "DELETE FROM group_invitations WHERE id_group = ?";
+        try {
+            PreparedStatement ps = getCon().prepareStatement(sql);
+            ps.setInt(1, idGroup);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println("[GroupInvitationDAO] Error al eliminar invitaciones del grupo: " + e.getMessage());
+        }
+    }
 }
