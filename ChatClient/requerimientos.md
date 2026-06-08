@@ -1,0 +1,81 @@
+# Requerimientos
+
+> **Criterio de clasificación.** Un **requerimiento funcional (RQF)** describe un comportamiento o acción que el sistema ejecuta; las validaciones y reglas de negocio (campos vacíos, longitudes, duplicados, reglas de permanencia) son comportamientos y por tanto se modelan como **sub-requerimientos funcionales** (`RQFx.y`). Un **requerimiento no funcional (RQNF)** describe un atributo de calidad medible (rendimiento, usabilidad, seguridad, fiabilidad/consistencia, disponibilidad/persistencia).
+
+## Registro de usuario
+
+| Requerimiento Funcional | Requerimientos No Funcionales asociados |
+| --- | --- |
+| **RQF1:** El usuario se registra en el sistema mediante un nombre de usuario, correo electrónico y una contraseña.<br>&nbsp;&nbsp;**RQF1.1:** El sistema valida que el campo de correo electrónico no esté vacío.<br>&nbsp;&nbsp;**RQF1.2:** El sistema valida que el campo de nombre de usuario no esté vacío.<br>&nbsp;&nbsp;**RQF1.3:** El sistema valida que el campo de contraseña no esté vacío.<br>&nbsp;&nbsp;**RQF1.4:** El sistema valida que la contraseña tenga mínimo 4 caracteres.<br>&nbsp;&nbsp;**RQF1.5:** El sistema verifica que el correo electrónico no se encuentre registrado previamente. | **RQNF1 (Seguridad):** El sistema almacena la contraseña de forma cifrada (hash); en ningún momento la guarda ni la transmite en texto plano.<br>**RQNF2 (Usabilidad):** El sistema informa con un mensaje claro el motivo concreto del rechazo del registro (campo vacío, contraseña corta o correo ya registrado). |
+
+## Inicio de sesión
+
+| Requerimiento Funcional | Requerimientos No Funcionales asociados |
+| --- | --- |
+| **RQF2:** El usuario registrado inicia sesión ingresando su correo electrónico y contraseña.<br>&nbsp;&nbsp;**RQF2.1:** El sistema valida que el campo de correo electrónico no esté vacío.<br>&nbsp;&nbsp;**RQF2.2:** El sistema verifica que el correo electrónico exista en la base de datos.<br>&nbsp;&nbsp;**RQF2.3:** El sistema valida que el campo de contraseña no esté vacío.<br>&nbsp;&nbsp;**RQF2.4:** El sistema valida contra la base de datos que las credenciales sean correctas.<br>&nbsp;&nbsp;**RQF2.5:** El sistema muestra un mensaje de error cuando las credenciales no coinciden. | **RQNF3 (Seguridad):** El sistema valida la contraseña comparando su hash; nunca compara ni recupera la contraseña en texto plano.<br>**RQNF4 (Rendimiento):** El sistema resuelve el intento de autenticación en un tiempo no mayor a 2 segundos.<br>**RQNF5 (Usabilidad):** El mensaje de error de credenciales es claro y no revela cuál de los dos campos fue incorrecto. |
+
+## Recuperación de contraseña
+
+| Requerimiento Funcional | Requerimientos No Funcionales asociados |
+| --- | --- |
+| **RQF3:** El usuario accede a la vista de recuperación de contraseña después de tres intentos de inicio de sesión fallidos consecutivos.<br>&nbsp;&nbsp;**RQF3.1:** El sistema toma el correo ingresado en la vista de inicio de sesión como cuenta a modificar.<br>&nbsp;&nbsp;**RQF3.2:** El sistema valida que el campo de la nueva contraseña no esté vacío.<br>&nbsp;&nbsp;**RQF3.3:** El sistema actualiza la contraseña en la base de datos al finalizar el proceso.<br>&nbsp;&nbsp;**RQF3.4:** El sistema redirige al usuario a la vista de inicio de sesión tras un cambio exitoso. | **RQNF6 (Seguridad):** El sistema almacena la nueva contraseña cifrada (hash), igual que en el registro.<br>**RQNF7 (Usabilidad):** El sistema confirma visualmente al usuario que el cambio de contraseña fue exitoso antes de redirigirlo. |
+
+## Registro de eventos de autenticación
+
+| Requerimiento Funcional | Requerimientos No Funcionales asociados |
+| --- | --- |
+| **RQF4:** El sistema registra los intentos fallidos de autenticación en el log del servidor. | **RQNF8 (Rendimiento):** El sistema imprime en el log cada evento de error de autenticación en un tiempo no mayor a 1 segundo desde que se detectan las credenciales incorrectas. |
+
+## Pestaña "Todos"
+
+| Requerimiento Funcional | Requerimientos No Funcionales asociados |
+| --- | --- |
+| **RQF5:** El usuario visualiza en la pestaña "Todos" la lista de todos los usuarios registrados en el sistema.<br>&nbsp;&nbsp;**RQF5.1:** El sistema establece el estado de conexión de un usuario como *conectado* cuando inicia sesión.<br>&nbsp;&nbsp;**RQF5.2:** El sistema establece el estado de conexión de un usuario como *desconectado* cuando cierra sesión. | **RQNF9 (Usabilidad):** El sistema representa el estado de cada usuario mediante un color distintivo.<br>**RQNF10 (Fiabilidad):** El estado de conexión mostrado refleja el estado real con un desfase no mayor a 2 segundos. |
+
+## Conversaciones en "Chat Todos"
+
+| Requerimiento Funcional | Requerimientos No Funcionales asociados |
+| --- | --- |
+| **RQF6:** El usuario selecciona a otro usuario para iniciar una conversación.<br>&nbsp;&nbsp;**RQF6.1:** El sistema permite seleccionar únicamente usuarios conectados.<br>&nbsp;&nbsp;**RQF6.2:** El sistema abre una ventana de conversación al seleccionar un usuario.<br>**RQF7:** El usuario envía mensajes dentro de la vista "Chat Todos".<br>&nbsp;&nbsp;**RQF7.1:** El sistema valida que el mensaje no esté vacío antes de enviarlo.<br>&nbsp;&nbsp;**RQF7.2:** El sistema mantiene el mensaje en memoria únicamente durante la sesión activa.<br>**RQF8:** El usuario recibe mensajes dentro de "Chat Todos".<br>&nbsp;&nbsp;**RQF8.1:** El sistema muestra los mensajes recibidos cuando el usuario se encuentra dentro de la conversación. | **RQNF11 (Rendimiento):** El sistema entrega un mensaje a un destinatario conectado en un tiempo no mayor a 1 segundo.<br>**RQNF12 (Usabilidad):** El sistema muestra los mensajes de la conversación en orden cronológico. |
+
+## Cierre de sesión
+
+| Requerimiento Funcional | Requerimientos No Funcionales asociados |
+| --- | --- |
+| **RQF9:** El usuario cierra sesión.<br>&nbsp;&nbsp;**RQF9.1:** El sistema elimina el historial de conversación con los usuarios no amigos al cerrar sesión. | **RQNF13 (Privacidad):** Las conversaciones con usuarios no amigos son efímeras: no se persisten en almacenamiento permanente ni se recuperan en sesiones posteriores.<br>**RQNF14 (Fiabilidad):** Tras el cierre de sesión, el estado del usuario pasa a *desconectado* y se propaga al resto de clientes en un tiempo no mayor a 2 segundos. |
+
+## Solicitudes de amistad
+
+| Requerimiento Funcional | Requerimientos No Funcionales asociados |
+| --- | --- |
+| **RQF10:** El usuario envía solicitudes de amistad desde la vista de todos.<br>&nbsp;&nbsp;**RQF10.1:** El sistema registra la solicitud de amistad enviada.<br>&nbsp;&nbsp;**RQF10.2:** El sistema notifica al usuario receptor cuando recibe una nueva solicitud.<br>&nbsp;&nbsp;**RQF10.3:** El sistema informa que el usuario ya es amigo cuando se intenta enviar una solicitud a un amigo existente.<br>&nbsp;&nbsp;**RQF10.4:** El sistema impide enviar solicitudes a usuarios ya agregados como amigos.<br>**RQF11:** El usuario visualiza las invitaciones de amistad enviadas.<br>&nbsp;&nbsp;**RQF11.1:** El sistema muestra el estado de cada invitación enviada: ACEPTADO, RECHAZADO, PENDIENTE.<br>&nbsp;&nbsp;**RQF11.2:** El sistema actualiza el estado de la invitación cuando el destinatario responde.<br>**RQF12:** El usuario visualiza las invitaciones de amistad recibidas.<br>&nbsp;&nbsp;**RQF12.1:** El sistema actualiza la lista de invitaciones recibidas cuando llega una nueva solicitud.<br>&nbsp;&nbsp;**RQF12.2:** El sistema muestra el usuario remitente de cada invitación.<br>**RQF13:** El usuario acepta o rechaza invitaciones de amistad recibidas.<br>&nbsp;&nbsp;**RQF13.1:** El sistema registra la respuesta seleccionada en la base de datos.<br>&nbsp;&nbsp;**RQF13.2:** El sistema actualiza el estado de la invitación: ACEPTADA, RECHAZADA.<br>&nbsp;&nbsp;**RQF13.3:** El sistema agrega a ambos usuarios a sus respectivas listas de amigos cuando la invitación es aceptada. | **RQNF15 (Disponibilidad):** El sistema notifica al receptor una nueva solicitud en un tiempo no mayor a 2 segundos.<br>**RQNF16 (Consistencia):** El estado de una invitación es consistente entre remitente y receptor tras cualquier respuesta.<br>**RQNF17 (Usabilidad):** El sistema representa los estados (ACEPTADO/RECHAZADO/PENDIENTE) con etiquetas o colores consistentes en todas las vistas. |
+
+## Pestaña "Amigos"
+
+| Requerimiento Funcional | Requerimientos No Funcionales asociados |
+| --- | --- |
+| **RQF14:** El usuario visualiza en la pestaña "Amigos" la lista de usuarios con amistad confirmada.<br>&nbsp;&nbsp;**RQF14.1:** El sistema muestra únicamente usuarios con una amistad confirmada.<br>&nbsp;&nbsp;**RQF14.2:** El sistema actualiza la lista cuando una solicitud es aceptada.<br>&nbsp;&nbsp;**RQF14.3:** El sistema muestra el estado de conexión de cada amigo. | **RQNF18 (Usabilidad):** El sistema indica el estado de conexión de cada amigo mediante un indicador visual.<br>**RQNF19 (Fiabilidad):** La lista de amigos refleja altas, bajas y cambios de estado en un tiempo no mayor a 2 segundos. |
+
+## Mensajería con amigos
+
+| Requerimiento Funcional | Requerimientos No Funcionales asociados |
+| --- | --- |
+| **RQF15:** El usuario envía mensajes a sus amigos.<br>&nbsp;&nbsp;**RQF15.1:** El sistema valida que el mensaje no esté vacío antes de enviarlo.<br>&nbsp;&nbsp;**RQF15.2:** El sistema entrega el mensaje al destinatario seleccionado.<br>**RQF16:** El usuario recibe mensajes de sus amigos.<br>&nbsp;&nbsp;**RQF16.1:** El sistema muestra los mensajes recibidos en la conversación correspondiente.<br>**RQF17:** El usuario visualiza las conversaciones previas de "Chat Amigos" tras iniciar sesión nuevamente.<br>&nbsp;&nbsp;**RQF17.1:** El sistema almacena los mensajes de "Chat Amigos".<br>&nbsp;&nbsp;**RQF17.2:** El sistema recupera las conversaciones almacenadas cuando el usuario vuelve a iniciar sesión. | **RQNF20 (Rendimiento):** El sistema entrega un mensaje a un amigo conectado en un tiempo no mayor a 1 segundo.<br>**RQNF21 (Persistencia):** Los mensajes con amigos persisten de forma permanente y sobreviven entre sesiones.<br>**RQNF22 (Usabilidad):** El sistema muestra el historial de mensajes en orden cronológico. |
+
+## Creación y gestión de grupos
+
+| Requerimiento Funcional | Requerimientos No Funcionales asociados |
+| --- | --- |
+| **RQF18:** El usuario crea un grupo.<br>&nbsp;&nbsp;**RQF18.1:** El sistema genera un identificador único para el grupo.<br>&nbsp;&nbsp;**RQF18.2:** El sistema asigna el rol de administrador al usuario creador.<br>&nbsp;&nbsp;**RQF18.3:** El sistema registra la información del grupo.<br>**RQF19:** El usuario invita usuarios a un grupo.<br>&nbsp;&nbsp;**RQF19.1:** El sistema permite invitar únicamente a usuarios registrados.<br>&nbsp;&nbsp;**RQF19.2:** El sistema registra las invitaciones enviadas.<br>&nbsp;&nbsp;**RQF19.3:** El sistema notifica a los usuarios cuando reciben una invitación de grupo.<br>**RQF20:** El usuario visualiza las invitaciones de grupo recibidas.<br>&nbsp;&nbsp;**RQF20.1:** El sistema muestra únicamente las invitaciones del usuario autenticado.<br>&nbsp;&nbsp;**RQF20.2:** El sistema actualiza la lista cuando llega una nueva invitación.<br>&nbsp;&nbsp;**RQF20.3:** El sistema muestra el nombre del grupo de cada invitación.<br>**RQF21:** El usuario visualiza las personas invitadas a un grupo y el estado de sus invitaciones.<br>&nbsp;&nbsp;**RQF21.1:** El sistema muestra el estado de cada invitación: ACEPTADO, RECHAZADO, PENDIENTE.<br>&nbsp;&nbsp;**RQF21.2:** El sistema actualiza el estado cuando los usuarios responden.<br>&nbsp;&nbsp;**RQF21.3:** El sistema muestra únicamente los invitados del grupo seleccionado.<br>**RQF22:** El sistema aplica las condiciones mínimas de permanencia de un grupo.<br>&nbsp;&nbsp;**RQF22.1:** El sistema mantiene activo el grupo mientras exista al menos una invitación PENDIENTE.<br>&nbsp;&nbsp;**RQF22.2:** El sistema mantiene activo el grupo cuando existen al menos tres miembros con invitación ACEPTADA, incluido el creador.<br>&nbsp;&nbsp;**RQF22.3:** El sistema elimina el grupo cuando no existe ninguna invitación pendiente y no se alcanza el mínimo de tres miembros aceptados.<br>**RQF23:** El usuario acepta o rechaza invitaciones de grupo recibidas.<br>&nbsp;&nbsp;**RQF23.1:** El sistema registra la respuesta seleccionada.<br>&nbsp;&nbsp;**RQF23.2:** El sistema actualiza el estado de la invitación: ACEPTADO, RECHAZADO.<br>&nbsp;&nbsp;**RQF23.3:** El sistema agrega al usuario como miembro cuando acepta.<br>&nbsp;&nbsp;**RQF23.4:** El sistema actualiza la lista de participantes visibles para los integrantes.<br>**RQF24:** El usuario visualiza los grupos de los que forma parte.<br>&nbsp;&nbsp;**RQF24.1:** El sistema actualiza la lista cuando el usuario es agregado o eliminado de un grupo.<br>**RQF25:** El usuario abandona un grupo en cualquier momento.<br>&nbsp;&nbsp;**RQF25.1:** El sistema elimina al usuario de la lista de miembros.<br>&nbsp;&nbsp;**RQF25.2:** El sistema actualiza la información de participantes tras la salida.<br>&nbsp;&nbsp;**RQF25.3:** El sistema elimina el grupo si, tras la salida, los miembros aceptados son menos de tres.<br>**RQF26:** El creador del grupo elimina el grupo.<br>&nbsp;&nbsp;**RQF26.1:** El sistema elimina el grupo de forma permanente.<br>&nbsp;&nbsp;**RQF26.2:** El sistema elimina las invitaciones asociadas.<br>&nbsp;&nbsp;**RQF26.3:** El sistema notifica a los integrantes que el grupo fue eliminado.<br>**RQF27:** El creador del grupo abandona el grupo.<br>&nbsp;&nbsp;**RQF27.1:** El sistema elimina el grupo automáticamente cuando el creador lo abandona.<br>&nbsp;&nbsp;**RQF27.2:** El sistema elimina los registros asociados al grupo cuando éste deja de existir. | **RQNF23 (Consistencia):** El sistema evalúa las reglas de permanencia (mínimo tres aceptados / existencia de invitaciones pendientes) de forma atómica tras cada cambio de membresía, sin dejar el grupo en un estado inconsistente.<br>**RQNF24 (Seguridad/Autorización):** Únicamente el creador (administrador) del grupo puede eliminarlo.<br>**RQNF25 (Disponibilidad):** El sistema notifica las invitaciones y la eliminación de un grupo en un tiempo no mayor a 2 segundos.<br>**RQNF26 (Usabilidad):** El sistema representa los estados de invitación con etiquetas o colores consistentes. |
+
+## Mensajería en grupos
+
+| Requerimiento Funcional | Requerimientos No Funcionales asociados |
+| --- | --- |
+| **RQF28:** El usuario visualiza el historial de mensajes de un grupo al ingresar.<br>&nbsp;&nbsp;**RQF28.1:** El sistema recupera los mensajes almacenados del grupo seleccionado.<br>&nbsp;&nbsp;**RQF28.2:** El sistema muestra el historial completo disponible para los integrantes.<br>**RQF29:** El usuario envía mensajes dentro de un grupo.<br>&nbsp;&nbsp;**RQF29.1:** El sistema valida que el mensaje no esté vacío antes de enviarlo.<br>&nbsp;&nbsp;**RQF29.2:** El sistema distribuye el mensaje a todos los integrantes activos.<br>&nbsp;&nbsp;**RQF29.3:** El sistema almacena el mensaje en el historial del grupo.<br>**RQF30:** El usuario recibe mensajes dentro de un grupo.<br>&nbsp;&nbsp;**RQF30.1:** El sistema muestra los mensajes recibidos.<br>&nbsp;&nbsp;**RQF30.2:** El sistema identifica al remitente de cada mensaje. | **RQNF27 (Usabilidad):** El sistema muestra los mensajes del grupo en orden cronológico.<br>**RQNF28 (Rendimiento):** El sistema actualiza la conversación grupal con los nuevos mensajes en un tiempo no mayor a 2 segundos.<br>**RQNF29 (Persistencia):** El historial de mensajes del grupo persiste de forma permanente y sobrevive entre sesiones. |
+
+## Administración del servidor
+
+| Requerimiento Funcional | Requerimientos No Funcionales asociados |
+| --- | --- |
+| **RQF31:** El administrador del sistema visualiza las acciones realizadas por el servidor.<br>&nbsp;&nbsp;**RQF31.1:** El sistema registra los eventos generados por los usuarios.<br>&nbsp;&nbsp;**RQF31.2:** El sistema muestra los eventos registrados.<br>&nbsp;&nbsp;**RQF31.3:** El sistema actualiza la información mostrada conforme ocurren nuevas acciones. | **RQNF30 (Rendimiento):** El sistema refleja los nuevos eventos en la vista del administrador en un tiempo no mayor a 1 segundo.<br>**RQNF31 (Usabilidad):** El sistema muestra cada evento de forma legible e incluye su marca temporal. |
