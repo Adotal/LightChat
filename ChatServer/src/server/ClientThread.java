@@ -791,7 +791,7 @@ public class ClientThread implements Runnable {
 
             if (accept) {
                 invDAO.accept(idInvitation);
-                int idConv = new ConversationDAO().getConversationIdByGroup(idGroup);
+                int idConv = ensureGroupConversation(idGroup);
                 if (idConv != -1) {
                     new ConversationMemberDAO().addMember(idInvited, idConv);
                 }
@@ -969,6 +969,36 @@ public class ClientThread implements Runnable {
         }
     }
 
+    /**
+     * Garantiza que exista la conversación GROUP del grupo y que sus miembros
+     * (owner + invitados APPROVED) estén registrados en conversation_members.
+     * Auto-repara grupos creados antes de corregir el esquema, cuya conversación
+     * nunca llegó a crearse. Idempotente: addMember ignora duplicados.
+     *
+     * @return el id de la conversación de grupo, o -1 si no se pudo crear.
+     */
+    private int ensureGroupConversation(int idGroup) {
+        ConversationDAO convDAO = new ConversationDAO();
+        int idConv = convDAO.getConversationIdByGroup(idGroup);
+        if (idConv == -1) {
+            idConv = convDAO.createGroupConversation(idGroup);
+            if (idConv == -1) {
+                return -1;
+            }
+        }
+        ConversationMemberDAO memberDAO = new ConversationMemberDAO();
+        int ownerId = new GroupDAO().getOwnerId(idGroup);
+        if (ownerId != -1) {
+            memberDAO.addMember(ownerId, idConv);
+        }
+        for (GroupInvitation gi : new GroupInvitationDAO().getInvitationsByGroup(idGroup)) {
+            if (gi.getStatus() == model.Request.RequestStatus.APPROVED && gi.getInvitedUser() != null) {
+                memberDAO.addMember(gi.getInvitedUser().getIdUser(), idConv);
+            }
+        }
+        return idConv;
+    }
+
     private void handleGroupMessage(JsonNode root, ObjectMapper mapper) {
         try {
             int idGroup = root.get("group_id").asInt();
@@ -981,7 +1011,7 @@ public class ClientThread implements Runnable {
             }
 
             ConversationDAO convDAO = new ConversationDAO();
-            int idConv = convDAO.getConversationIdByGroup(idGroup);
+            int idConv = ensureGroupConversation(idGroup);
             if (idConv == -1) {
                 return;
             }

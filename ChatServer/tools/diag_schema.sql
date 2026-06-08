@@ -1,0 +1,1 @@
+SELECT c.id_conversation, c.id_group, c.type, cm.id_user, u.name FROM conversations c JOIN conversation_members cm ON cm.id_conversation = c.id_conversation JOIN users u ON u.id_user = cm.id_user WHERE c.type = 'GROUP' ORDER BY c.id_group, cm.id_user;
