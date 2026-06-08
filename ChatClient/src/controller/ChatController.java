@@ -1,8 +1,10 @@
 package controller;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.util.function.Consumer;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import model.Chat;
@@ -44,6 +46,11 @@ public class ChatController {
     private final User receiverUser;
     private final Chat chat;
 
+    // Referencias a los handlers registrados, para poder desregistrarlos al cerrar.
+    private Consumer<JsonNode> sendMessageHandler;
+    private Consumer<JsonNode> deleteChatHandler;
+    private Consumer<JsonNode> historyHandler;
+
     public ChatController(View view, User receiverUser) {
         this.view = view;
         this.currentUser = SessionManager.getInstance().getCurrentUser();
@@ -55,8 +62,12 @@ public class ChatController {
     private void registerHandlers() {
         ServerDispatcher dispatcher = ServerDispatcher.getInstance();
 
-        dispatcher.register("SEND_MESSAGE", rootNode -> {
+        sendMessageHandler = rootNode -> {
             try {
+                // Ignorar payloads de grupo: este handler solo procesa chat directo.
+                if (rootNode.has("chat_type") && !"TODOS".equals(rootNode.get("chat_type").asText())) {
+                    return;
+                }
                 //  Reutilizar el ObjectMapper para deserializar el nodo 'message'
                 ObjectMapper mapper = new ObjectMapper();
                 TodosMessage incomingMsg = mapper.treeToValue(rootNode.get("message"), TodosMessage.class);
@@ -83,14 +94,21 @@ public class ChatController {
             } catch (Exception e) {
                 System.err.println("Error procesando mensaje P2P entrante: " + e.getMessage());
             }
-        });
+        };
+        dispatcher.register("SEND_MESSAGE", sendMessageHandler);
 
-        dispatcher.register("DELETE_CHAT", root -> {
+        deleteChatHandler = root -> {
+            // Solo cerrar si el DELETE_CHAT corresponde a esta conversación.
+            if (root.has("otherUserId")
+                    && root.get("otherUserId").asInt() != receiverUser.getIdUser()) {
+                return;
+            }
             view.onDeleteChat();
-        });
+        };
+        dispatcher.register("DELETE_CHAT", deleteChatHandler);
 
         // Historial persistido de la conversación (RQF26/RQNF48/49)
-        dispatcher.register("CONVERSATION_HISTORY", root -> {
+        historyHandler = root -> {
             try {
                 if (!root.has("otherUserId")
                         || root.get("otherUserId").asInt() != receiverUser.getIdUser()) {
@@ -114,7 +132,22 @@ public class ChatController {
             } catch (Exception e) {
                 System.err.println("[ChatController] Error procesando historial: " + e.getMessage());
             }
-        });
+        };
+        dispatcher.register("CONVERSATION_HISTORY", historyHandler);
+    }
+
+    /** Desregistra los handlers de red; llamar al cerrar la vista. */
+    public void dispose() {
+        ServerDispatcher dispatcher = ServerDispatcher.getInstance();
+        if (sendMessageHandler != null) {
+            dispatcher.unregister("SEND_MESSAGE", sendMessageHandler);
+        }
+        if (deleteChatHandler != null) {
+            dispatcher.unregister("DELETE_CHAT", deleteChatHandler);
+        }
+        if (historyHandler != null) {
+            dispatcher.unregister("CONVERSATION_HISTORY", historyHandler);
+        }
     }
 
     public void connect() {

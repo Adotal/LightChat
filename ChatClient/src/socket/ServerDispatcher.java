@@ -1,8 +1,10 @@
 package socket;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import javax.swing.SwingUtilities;
 import util.Json;
@@ -21,8 +23,8 @@ public class ServerDispatcher {
 
     private static ServerDispatcher instance;
 
-    // type del mensaje -> handler que lo procesa (en el EDT)
-    private final Map<String, Consumer<JsonNode>> handlers = new ConcurrentHashMap<>();
+    // type del mensaje -> handlers que lo procesan (en el EDT)
+    private final Map<String, List<Consumer<JsonNode>>> handlers = new ConcurrentHashMap<>();
 
     // Listener de estado de conexión ("Conectando...", "Conectado", etc.)
     private volatile Consumer<String> statusListener;
@@ -38,12 +40,23 @@ public class ServerDispatcher {
     }
 
     /**
-     * Registra (o reemplaza) el handler para un tipo de mensaje del servidor.
+     * Registra un handler para un tipo de mensaje del servidor. Pueden coexistir
+     * varios handlers para el mismo tipo (p. ej. varios chats abiertos); cada uno
+     * debe filtrar internamente los mensajes que le competen.
      */
     public void register(String type, Consumer<JsonNode> handler) {
-        handlers.put(type, handler);
+        handlers.computeIfAbsent(type, k -> new CopyOnWriteArrayList<>()).add(handler);
     }
 
+    /** Elimina un handler concreto previamente registrado para ese tipo. */
+    public void unregister(String type, Consumer<JsonNode> handler) {
+        List<Consumer<JsonNode>> list = handlers.get(type);
+        if (list != null) {
+            list.remove(handler);
+        }
+    }
+
+    /** Elimina todos los handlers de un tipo. */
     public void unregister(String type) {
         handlers.remove(type);
     }
@@ -63,12 +76,16 @@ public class ServerDispatcher {
                 return;
             }
             String type = root.get("type").asText();
-            Consumer<JsonNode> handler = handlers.get(type);
-            if (handler == null) {
+            List<Consumer<JsonNode>> typeHandlers = handlers.get(type);
+            if (typeHandlers == null || typeHandlers.isEmpty()) {
                 System.out.println("[ServerDispatcher] Sin handler para type=" + type);
                 return;
             }
-            SwingUtilities.invokeLater(() -> handler.accept(root));
+            SwingUtilities.invokeLater(() -> {
+                for (Consumer<JsonNode> handler : typeHandlers) {
+                    handler.accept(root);
+                }
+            });
         } catch (Exception e) {
             System.err.println("[ServerDispatcher] Error procesando mensaje: " + e.getMessage());
         }

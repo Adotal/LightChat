@@ -38,6 +38,12 @@ public class GroupChatView extends BaseChatView implements GroupsController.View
     }
 
     @Override
+    public void dispose() {
+        controller.dispose();
+        super.dispose();
+    }
+
+    @Override
     protected JComponent getHeaderTrailing() {
         JButton btnOpciones = new JButton("•••");
         btnOpciones.setBackground(FONDO_OSCURO_PRINCIPAL);

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import model.Group;
 import model.SessionManager;
 import model.User;
@@ -55,6 +56,9 @@ public class GroupsController {
     private final Group group;
     private final User currentUser;
 
+    // Handlers registrados (type -> handler) para poder desregistrarlos al cerrar.
+    private final java.util.Map<String, Consumer<JsonNode>> registered = new java.util.LinkedHashMap<>();
+
     public GroupsController(View view, Group group) {
         this.view = view;
         this.group = group;
@@ -62,10 +66,23 @@ public class GroupsController {
         registerHandlers();
     }
 
-    private void registerHandlers() {
-        ServerDispatcher dispatcher = ServerDispatcher.getInstance();
+    /** Registra un handler y guarda su referencia para limpieza posterior. */
+    private void track(String type, Consumer<JsonNode> handler) {
+        registered.put(type, handler);
+        ServerDispatcher.getInstance().register(type, handler);
+    }
 
-        dispatcher.register("SEND_MESSAGE", root -> {
+    /** Desregistra todos los handlers de red; llamar al cerrar la vista. */
+    public void dispose() {
+        ServerDispatcher dispatcher = ServerDispatcher.getInstance();
+        for (java.util.Map.Entry<String, Consumer<JsonNode>> e : registered.entrySet()) {
+            dispatcher.unregister(e.getKey(), e.getValue());
+        }
+        registered.clear();
+    }
+
+    private void registerHandlers() {
+        track("SEND_MESSAGE", root -> {
             if (!root.has("chat_type") || !"GROUP".equals(root.get("chat_type").asText())) {
                 return;
             }
@@ -79,7 +96,7 @@ public class GroupsController {
             view.onGroupMessage(new GMsg(name, text, idSender == currentUser.getIdUser()));
         });
 
-        dispatcher.register("GROUP_HISTORY", root -> {
+        track("GROUP_HISTORY", root -> {
             if (!root.has("group_id") || root.get("group_id").asInt() != group.getId()) {
                 return;
             }
@@ -95,13 +112,13 @@ public class GroupsController {
             view.onGroupHistory(history);
         });
 
-        dispatcher.register("GROUP_DELETED", root -> {
+        track("GROUP_DELETED", root -> {
             if (root.has("group_id") && root.get("group_id").asInt() == group.getId()) {
                 view.onGroupDeleted();
             }
         });
 
-        dispatcher.register("GROUP_MEMBERS", root -> {
+        track("GROUP_MEMBERS", root -> {
             if (!root.has("group_id") || root.get("group_id").asInt() != group.getId()) {
                 return;
             }
@@ -119,7 +136,7 @@ public class GroupsController {
             view.onGroupMembers(members, isOwner);
         });
 
-        dispatcher.register("GROUP_LEFT_OK", root -> {
+        track("GROUP_LEFT_OK", root -> {
             if (root.has("group_id") && root.get("group_id").asInt() == group.getId()) {
                 view.onGroupLeft();
             }

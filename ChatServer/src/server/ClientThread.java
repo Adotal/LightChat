@@ -226,13 +226,10 @@ public class ClientThread implements Runnable {
                             userDAO.changeIsConnected(emailReq, false);
 
                             // Chats con no-amigos son efímeros: borrar conversaciones TEMP del
-                            // usuario al cerrar sesión (RQNF26/27).
+                            // usuario al cerrar sesión y avisar al otro miembro (RQNF26/27).
                             User loggingOut = userDAO.getUserByEmail(emailReq);
                             if (loggingOut != null) {
-                                ConversationDAO convDAO = new ConversationDAO();
-                                for (int idConv : convDAO.getDirectConversationsByUserAndType(loggingOut.getIdUser(), "TEMP")) {
-                                    convDAO.deleteConversation(idConv);
-                                }
+                                cleanupTempConversations(loggingOut.getIdUser(), mapper);
                             }
 
                             // Return success
@@ -356,7 +353,14 @@ public class ClientThread implements Runnable {
             // Clean up safety layer. If window closed abruptly, force DB offline status
             if (this.userEmail != null) {
                 try {
-                    new UserDAO().changeIsConnected(this.userEmail, false);
+                    UserDAO userDAO = new UserDAO();
+                    userDAO.changeIsConnected(this.userEmail, false);
+                    // Borrar conversaciones TEMP efímeras también en desconexión abrupta
+                    // y avisar al otro miembro para que limpie su vista (RQNF26/27).
+                    User droppedUser = userDAO.getUserByEmail(this.userEmail);
+                    if (droppedUser != null) {
+                        cleanupTempConversations(droppedUser.getIdUser(), new ObjectMapper());
+                    }
                 } catch (Exception ex) {
                     server.writeConsole("Error setting database offline state on unexpected drop.");
                 }
@@ -387,6 +391,37 @@ public class ClientThread implements Runnable {
             if (t != null) {
                 t.sendMessage(json);
             }
+        }
+    }
+
+    /**
+     * Borra las conversaciones TEMP (efímeras, entre no-amigos) del usuario y
+     * notifica a los demás miembros conectados para que limpien su vista del
+     * chat (RQNF26/27). Se invoca tanto en logout limpio como en desconexión
+     * abrupta.
+     */
+    private void cleanupTempConversations(int userId, ObjectMapper mapper) {
+        try {
+            ConversationDAO convDAO = new ConversationDAO();
+            ConversationMemberDAO memberDAO = new ConversationMemberDAO();
+            for (int idConv : convDAO.getDirectConversationsByUserAndType(userId, "TEMP")) {
+                // Avisar al otro miembro conectado antes de borrar la conversación.
+                for (User m : memberDAO.getMembersByConversation(idConv)) {
+                    if (m.getIdUser() == userId) {
+                        continue;
+                    }
+                    ClientThread t = server.findClientByUserEmail(m.getEmail());
+                    if (t != null) {
+                        ObjectNode n = mapper.createObjectNode();
+                        n.put("type", "DELETE_CHAT");
+                        n.put("otherUserId", userId);
+                        t.sendMessage(mapper.writeValueAsString(n));
+                    }
+                }
+                convDAO.deleteConversation(idConv);
+            }
+        } catch (Exception e) {
+            server.writeConsole("[SERVER] cleanupTempConversations: " + e.getMessage());
         }
     }
 

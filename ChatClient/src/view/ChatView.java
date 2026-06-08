@@ -30,6 +30,12 @@ public class ChatView extends BaseChatView implements ChatController.View {
     }
 
     @Override
+    public void dispose() {
+        controller.dispose();
+        super.dispose();
+    }
+
+    @Override
     protected JComponent getHeaderLeadingIndicator() {
         lblStatusCircle = new JLabel() {
             @Override
