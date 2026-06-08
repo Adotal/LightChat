@@ -20,6 +20,7 @@ public class NewGroupView extends JFrame implements NewGroupController.View {
     private JPanel panelLista;
     private JTextField txtNombreGrupo;
     private JButton btnCrear;
+    private JButton btnRegresar;
 
     // REFERENCIAS DE CONEXIÓN CON LA VISTA PADRE Y ESTRUCTURAS REALES DEL MODELO
     private ArrayList<Group> listaGruposReferencia;
@@ -158,8 +159,20 @@ public class NewGroupView extends JFrame implements NewGroupController.View {
         scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         panelPrincipal.add(scrollPane, BorderLayout.CENTER);
 
-        JPanel panelInferior = new JPanel(new FlowLayout(FlowLayout.TRAILING));
+        JPanel panelInferior = new JPanel(new BorderLayout());
         panelInferior.setOpaque(false);
+
+        btnRegresar = new JButton("Regresar");
+        btnRegresar.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        btnRegresar.setBackground(new Color(70, 90, 160));
+        btnRegresar.setForeground(Color.WHITE);
+        btnRegresar.setFocusPainted(false);
+        btnRegresar.setBorder(BorderFactory.createEmptyBorder(10, 30, 10, 30));
+        btnRegresar.addActionListener(e -> regresar());
+
+        JPanel panelIzquierdo = new JPanel(new FlowLayout(FlowLayout.LEADING));
+        panelIzquierdo.setOpaque(false);
+        panelIzquierdo.add(btnRegresar);
 
         btnCrear = new JButton("Crear");
         btnCrear.setFont(new Font("Segoe UI", Font.BOLD, 20));
@@ -167,12 +180,28 @@ public class NewGroupView extends JFrame implements NewGroupController.View {
         btnCrear.setForeground(Color.WHITE);
         btnCrear.setFocusPainted(false);
         btnCrear.setBorder(BorderFactory.createEmptyBorder(10, 30, 10, 30));
-        panelInferior.add(btnCrear);
+
+        JPanel panelDerecho = new JPanel(new FlowLayout(FlowLayout.TRAILING));
+        panelDerecho.setOpaque(false);
+        panelDerecho.add(btnCrear);
+
+        panelInferior.add(panelIzquierdo, BorderLayout.WEST);
+        panelInferior.add(panelDerecho, BorderLayout.EAST);
 
         panelPrincipal.add(panelInferior, BorderLayout.SOUTH);
         add(panelPrincipal);
 
         this.limpiarLista();
+    }
+
+    /** Cierra la vista de creación y vuelve a la pantalla anterior. */
+    private void regresar() {
+        if (vistaPadreReferencia != null) {
+            vistaPadreReferencia.setVisible(true);
+        } else {
+            new UsersListView().setVisible(true);
+        }
+        dispose();
     }
 
     // ===== Callbacks de NewGroupController.View =====
