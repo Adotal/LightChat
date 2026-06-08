@@ -14,14 +14,16 @@ public class ChatView extends BaseChatView implements ChatController.View {
 
     private JLabel lblStatusCircle;
     private final ChatController controller;
+    String chatType;
 
     public ChatView() {
         // Distinct mock data to easily differentiate profiles during preview mode
-        this(new User(2, "Anna Clara", "annabanana@email.com", true));
+        this(new User(2, "Anna Clara", "annabanana@email.com", true), "TODOS");
     }
 
-    public ChatView(User receiverUser) {
+    public ChatView(User receiverUser, String chatType) {
         super();
+        this.chatType = chatType;
         controller = new ChatController(this, receiverUser);
         initComponents();
         actualizarEstadoUsuario();
