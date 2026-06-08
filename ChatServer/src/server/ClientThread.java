@@ -296,11 +296,11 @@ public class ClientThread implements Runnable {
                                         memberDAO.addMember(idReceiver, idConv);
                                     }
 
-                                    // Persistir solo si es FRIEND vía Amigos (RQNF47/51); TEMP es efímero (RQNF27)
-                                    if (persistent) {
-                                        new MessageDAO().insertMessage(new Message(0, idConv, idSender, text, null));
-                                        convDAO.updateLastSeen(idConv);
-                                    }
+                                    // Persistir el mensaje en su conversación (FRIEND persiste de forma
+                                    // permanente; TEMP persiste solo mientras ambos siguen en línea: se
+                                    // borra al primer logout/desconexión vía cleanupTempConversations).
+                                    new MessageDAO().insertMessage(new Message(0, idConv, idSender, text, null));
+                                    convDAO.updateLastSeen(idConv);
 
                                     // Reenviar al receptor conectado (RQNF25/50)
                                     ClientThread targetClient = server.findClientByUserEmail(emailReceiver);
