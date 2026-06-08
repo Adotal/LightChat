@@ -78,7 +78,7 @@ public class LoginView extends JFrame implements LoginController.View {
         gbc.insets = new Insets(0, 4, 8, 4);
         panelPrincipal.add(lblPass, gbc);
 
-        txtPassword = crearCampoPassword("1234");
+        txtPassword = crearCampoPassword("1");
         gbc.gridy = 5;
         gbc.insets = new Insets(0, 0, 60, 0);
         panelPrincipal.add(txtPassword, gbc);

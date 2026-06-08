@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class JavaServer {
 
-    private static final int PORT = 1235;    
+    private static final int PORT = 1235;
 
     // Para que hilos se guarden con identificador incremental
     private final AtomicInteger idCount = new AtomicInteger(0);
@@ -62,15 +62,15 @@ public class JavaServer {
     }
 
     public synchronized void writeConsole(String s) {
-        System.out.println(s);        
+        System.out.println(s);
     }
-    
-    public void removeClient(int idClient){
+
+    public void removeClient(int idClient) {
         activeClients.remove(idClient);
         writeConsole("[Cliente #" + idClient + "] DISCONNECTED");
-                
+
     }
-    
+
     // Central broadcaster method
     public void broadcastUserStatus() {
         writeConsole("[SERVER] Broadcasting real-time status updates to all active sessions...");
@@ -78,6 +78,16 @@ public class JavaServer {
             // Triggers each thread to evaluate its user custom array list and execute .sendMessage()
             client.sendUserListUpdate();
         }
+    }
+    
+    public ClientThread findClientByUserEmail(String email) {
+        for (ClientThread client : activeClients.values()) {
+            // Asumiendo que guardas el objeto 'User' logueado dentro de cada ClientThread
+            if (client.getEmail()!= null && client.getEmail().equals(email)) {
+                return client;
+            }
+        }
+        return null; // El usuario está offline
     }
 
 }

@@ -6,6 +6,8 @@ import dao.UserDAO;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.ArrayList;
+import model.Message;
+import model.TodosMessage;
 import model.User;
 
 /**
@@ -32,26 +34,28 @@ public class ClientThread implements Runnable {
     public int getId() {
         return clientId;
     }
+    
+    public String getEmail(){
+        return this.userEmail;
+    }
 
     // Public helper to securely push raw text down this specific socket
     public synchronized void sendMessage(String msg) {
-        System.out.println("ARRIVE OUT");
         if (out != null) {
             out.println(msg);
-            System.out.println("ARRIVE SENT");
         }
     }
 
     // Self-contained method to fetch and send the updated list to this client
     public void sendUserListUpdate() {
-        
+
         if (this.userEmail == null) {
             return; // Do not send updates to clients still on the login screen
         }
         try {
-            
+
             System.out.println("[SENT:] " + this.userEmail);
-            
+
             ObjectMapper mapper = new ObjectMapper();
             UserDAO userDAO = new UserDAO();
             ArrayList<User> activeUsers = userDAO.getAllUsersNotEmail(this.userEmail);
@@ -63,8 +67,6 @@ public class ClientThread implements Runnable {
             ObjectNode response = mapper.createObjectNode();
             response.put("type", "UPDATE_USERS_LIST");
             response.set("users", mapper.valueToTree(activeUsers));
-            
-
 
             sendMessage(mapper.writeValueAsString(response));
         } catch (Exception e) {
@@ -131,7 +133,7 @@ public class ClientThread implements Runnable {
                                 retrievedUser.setPassword(null);
 
                                 // Create a dynamic Jackson JSON object
-                                com.fasterxml.jackson.databind.node.ObjectNode responseNode = mapper.createObjectNode();
+                                ObjectNode responseNode = mapper.createObjectNode();
                                 responseNode.put("type", "LOGIN_SUCCESS");
                                 responseNode.put("message", "Bienvenido");
                                 // Convert User object into a JsonNode and nest it
@@ -236,6 +238,43 @@ public class ClientThread implements Runnable {
                             // Send it to socket
                             String rawJsonToSend = mapper.writeValueAsString(response);
                             out.println(rawJsonToSend);
+                        } else if (tipo.equals("SEND_MESSAGE")) {
+
+                            String chatType = rootNode.get("chat_type").asText();
+
+                            if (chatType.equals("TODOS")) {
+
+                                // Deserialize directly into your structural Message object
+                                TodosMessage message = mapper.treeToValue(rootNode.get("message"), TodosMessage.class);
+                                System.out.println("Received message content: " + message.getText());
+
+                                // Obtener el JSON completo listo para ser reenviado
+                                String rawJsonPayload = rootNode.toString();
+
+                                // Extraer los IDs de la conversación
+                                int idDestinatario = message.getUserReceiver().getIdUser();
+                                int idRemitente = message.getUserSender().getIdUser();
+                                
+                                String emailDestinatario = message.getUserReceiver().getEmail();
+                                String emailRemitente = message.getUserSender().getEmail();
+
+                                // Buscar el hilo del cliente de destino en el servidor
+                                // 'server' es la referencia a JavaServer que le pasaste al constructor de ClientThread
+                                ClientThread targetClient = server.findClientByUserEmail(emailDestinatario);
+
+                                if (targetClient != null) {
+                                    // El usuario está conectado, le enviamos el mensaje directamente
+                                    targetClient.sendMessage(rawJsonPayload);
+                                    server.writeConsole("[SERVER] Mensaje enviado de User#" + idRemitente + " a User#" + idDestinatario);
+                                } else {
+                                    // El usuario no está conectado
+                                    server.writeConsole("[SERVER] Mensaje no enviado. User#" + idDestinatario + " está OFFLINE.");
+                                    // Aquí podrías guardar el mensaje en la base de datos como "no leído" si fuera necesario
+                                }
+
+                            } else if (chatType.equals("AMIGOS")) {
+                            }
+
                         }
                     }
                 } catch (Exception jsonEx) {

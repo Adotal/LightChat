@@ -9,12 +9,14 @@ import java.awt.geom.RoundRectangle2D;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import model.Message;
+import model.SessionManager;
 import model.User;
+import socket.ClientSocket;
 
 /**
  * @author alond
  */
-public class ChatView extends JFrame {
+public class ChatView extends JFrame implements ChatController.View {
 
     private JPanel panelHeader;
     private JPanel panelHistorialMensajes;
@@ -22,39 +24,38 @@ public class ChatView extends JFrame {
     private JPanel panelInput;
     private JTextField txtMensaje;
     private JButton btnEnviar;
-    private JButton btnVolver; // Nuevo botón de navegación
+    private JButton btnVolver;
     private JLabel lblStatusCircle;
     private JLabel lblUserName;
 
     private ChatController controller;
 
     public ChatView() {
-        // Datos mock de prueba mientras no se navega con un usuario concreto
-        this(new User(1, "Anna", "annabanana@email.com", true),
-                new User(2, "Anna", "annabanana@email.com", true));
+        // Distinct mock data to easily differentiate profiles during preview mode
+        this(
+                new User(2, "Anna Clara", "annabanana@email.com", true));
     }
 
-    public ChatView(User currentUser, User receiverUser) {
+    public ChatView(User receiverUser) {
         super();
-        controller = new ChatController(currentUser, receiverUser);
+        controller = new ChatController(this, receiverUser);
         initComponents();
         configurarEstilos();
         actualizarEstadoUsuario();
+        controller.connect();
     }
 
     private void initComponents() {
-        
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        setTitle("LightChat"); //Nombre que Adro escogio
+        setTitle("LightChat");
         setSize(500, 600);
         setMinimumSize(new Dimension(400, 500));
         setLocationRelativeTo(null);
         getContentPane().setLayout(new BorderLayout());
 
-        // Header con FlowLayout alineado a la izquierda
+        // Header configuration
         panelHeader = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 15));
-        
-        // BOTÓN VOLVER: Dibujado mediante vectores de Graphics2D (<)
+
         btnVolver = new JButton() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -62,8 +63,7 @@ public class ChatView extends JFrame {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(Color.WHITE);
                 g2.setStroke(new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                
-                // Dibuja la flecha de regreso estilizada <
+
                 g2.drawLine(16, 6, 8, 12);
                 g2.drawLine(8, 12, 16, 18);
                 g2.dispose();
@@ -74,8 +74,7 @@ public class ChatView extends JFrame {
         btnVolver.setBorderPainted(false);
         btnVolver.setFocusPainted(false);
         btnVolver.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        
-        // NAVEGACIÓN: Regresar a UsersListView
+
         btnVolver.addActionListener(e -> {
             try {
                 new UsersListView().setVisible(true);
@@ -84,14 +83,12 @@ public class ChatView extends JFrame {
                 JOptionPane.showMessageDialog(this, "UsersListView no encontrada.");
             }
         });
-        
-        // ESTADO DEL USUARIO
+
         lblStatusCircle = new JLabel() {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                // Si está conectado: Azul #2544c4 si no: Gris azulado #8ba2b3
                 User receiverUser = controller.getReceiverUser();
                 if (receiverUser != null && receiverUser.getIsConnected()) {
                     g2.setColor(new Color(37, 68, 196));
@@ -102,6 +99,7 @@ public class ChatView extends JFrame {
                 g2.dispose();
                 super.paintComponent(g);
             }
+
             @Override
             public Dimension getPreferredSize() {
                 return new Dimension(24, 24);
@@ -112,33 +110,29 @@ public class ChatView extends JFrame {
         lblUserName.setFont(new Font("Segoe UI", Font.BOLD, 16));
         lblUserName.setForeground(Color.WHITE);
 
-        // Agregamos primero el botón de volver en el extremo izquierdo
         panelHeader.add(btnVolver);
         panelHeader.add(lblStatusCircle);
         panelHeader.add(lblUserName);
-        
-        // línea que separa la info del user
+
         JPanel headerContainer = new JPanel(new BorderLayout());
         headerContainer.add(panelHeader, BorderLayout.CENTER);
         JSeparator separator = new JSeparator();
-        separator.setForeground(new Color(255, 255, 255, 30)); // Bajado un poco el alpha para que sea sutil
+        separator.setForeground(new Color(255, 255, 255, 30));
         headerContainer.add(separator, BorderLayout.SOUTH);
-        
+
         getContentPane().add(headerContainer, BorderLayout.NORTH);
 
-        // zona de los mensajes 
-        panelHistorialMensajes = new JPanel();
-        panelHistorialMensajes.setLayout(new BoxLayout(panelHistorialMensajes, BoxLayout.Y_AXIS));
+        // Switched layout to GridBagLayout for strict control over row compression
+        panelHistorialMensajes = new JPanel(new GridBagLayout());
         panelHistorialMensajes.setBorder(new EmptyBorder(10, 10, 10, 10));
 
         scrollChat = new JScrollPane(panelHistorialMensajes);
         scrollChat.setBorder(null);
         scrollChat.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        scrollChat.getVerticalScrollBar().setUnitIncrement(16); // Scroll 
+        scrollChat.getVerticalScrollBar().setUnitIncrement(16);
 
         getContentPane().add(scrollChat, BorderLayout.CENTER);
 
-        // Contenedor para ingresar el texto y el vector de enviar
         JPanel panelSouthContainer = new JPanel(new BorderLayout());
         panelSouthContainer.setBorder(new EmptyBorder(15, 15, 15, 15));
 
@@ -147,10 +141,10 @@ public class ChatView extends JFrame {
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(new Color(29, 43, 84)); // Color cápsula interna
+                g2.setColor(new Color(29, 43, 84));
                 g2.fill(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 40, 40));
                 g2.dispose();
-            } 
+            }
         };
         panelInput.setLayout(new BorderLayout());
         panelInput.setBorder(new EmptyBorder(5, 20, 5, 20));
@@ -161,14 +155,14 @@ public class ChatView extends JFrame {
         txtMensaje.setBorder(null);
         txtMensaje.setOpaque(false);
 
-        // Nimbus ignora setOpaque(false) en JTextField; se anulan sus painters de fondo
         UIDefaults sinFondo = new UIDefaults();
-        sinFondo.put("TextField[Enabled].backgroundPainter", (javax.swing.Painter<JComponent>) (g, c, w, h) -> {});
-        sinFondo.put("TextField[Focused].backgroundPainter", (javax.swing.Painter<JComponent>) (g, c, w, h) -> {});
+        sinFondo.put("TextField[Enabled].backgroundPainter", (javax.swing.Painter<JComponent>) (g, c, w, h) -> {
+        });
+        sinFondo.put("TextField[Focused].backgroundPainter", (javax.swing.Painter<JComponent>) (g, c, w, h) -> {
+        });
         txtMensaje.putClientProperty("Nimbus.Overrides", sinFondo);
         txtMensaje.putClientProperty("Nimbus.Overrides.InheritDefaults", false);
 
-        // Evento focus placeholders
         txtMensaje.addFocusListener(new java.awt.event.FocusAdapter() {
             public void focusGained(java.awt.event.FocusEvent evt) {
                 if (txtMensaje.getText().equals("Ingresa un mensaje")) {
@@ -176,18 +170,18 @@ public class ChatView extends JFrame {
                     txtMensaje.setForeground(Color.WHITE);
                 }
             }
+
             public void focusLost(java.awt.event.FocusEvent evt) {
                 if (txtMensaje.getText().isEmpty()) {
                     txtMensaje.setText("Ingresa un mensaje");
                     txtMensaje.setForeground(new Color(200, 200, 200));
                     txtMensaje.setBorder(null);
-                    txtMensaje.setOpaque(false); 
+                    txtMensaje.setOpaque(false);
                     txtMensaje.setBackground(new Color(0, 0, 0, 0));
                 }
             }
         });
 
-        // vector de enviar
         btnEnviar = new JButton() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -195,7 +189,7 @@ public class ChatView extends JFrame {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(Color.WHITE);
                 g2.setStroke(new BasicStroke(2f));
-                
+
                 int[] xPoints = {4, 20, 4, 8};
                 int[] yPoints = {4, 12, 20, 12};
                 g2.drawPolygon(xPoints, yPoints, 4);
@@ -214,7 +208,6 @@ public class ChatView extends JFrame {
 
         getContentPane().add(panelSouthContainer, BorderLayout.SOUTH);
 
-        // Evento enviar !!!
         ActionListener enviarAction = new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -222,64 +215,59 @@ public class ChatView extends JFrame {
             }
         };
         btnEnviar.addActionListener(enviarAction);
-        txtMensaje.addActionListener(enviarAction); // Enviar al presionar enter
+        txtMensaje.addActionListener(enviarAction);
     }
 
     private void configurarEstilos() {
         Color fondoOscuroPrincipal = new Color(7, 16, 51);
-        
         panelHeader.setBackground(fondoOscuroPrincipal);
         panelHistorialMensajes.setBackground(fondoOscuroPrincipal);
         scrollChat.getViewport().setBackground(fondoOscuroPrincipal);
         panelInput.getParent().setBackground(fondoOscuroPrincipal);
     }
 
-    //mandar al pojo de user
     public void actualizarEstadoUsuario() {
         User receiverUser = controller.getReceiverUser();
         if (receiverUser != null) {
             lblUserName.setText(receiverUser.getName());
+            setTitle("LightChat - " + receiverUser.getName()); // Dynamically updates frame title
             lblStatusCircle.repaint();
         }
     }
 
-    //Envia el mensaje (vía controller) y simula la respuesta del receptor
     private void procesarMensajeEnviado() {
         String texto = txtMensaje.getText().trim();
         if (texto.isEmpty() || texto.equals("Ingresa un mensaje")) {
             return;
         }
 
-        // El controller crea el modelo y lo agrega al chat
         Message mensajeMio = controller.sendMessage(texto);
         agregarBurbujaMensaje(mensajeMio, true);
 
         txtMensaje.setText("");
         txtMensaje.requestFocus();
 
-        // simulacion: el otro usuario te regresa exactamente el mismo texto
-        Timer timerEco = new Timer(800, new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                Message mensajeEco = controller.buildEcho(mensajeMio);
-                agregarBurbujaMensaje(mensajeEco, false);
-            }
-        });
-        timerEco.setRepeats(false);
-        timerEco.start();
+//        Timer timerEco = new Timer(800, new ActionListener() {
+//            @Override
+//            public void actionPerformed(ActionEvent e) {
+//                Message mensajeEco = controller.buildEcho(mensajeMio);
+//                agregarBurbujaMensaje(mensajeEco, false);
+//            }
+//        });
+//        timerEco.setRepeats(false);
+//        timerEco.start();
     }
 
     private void agregarBurbujaMensaje(Message msg, boolean esMio) {
-        
+        // Individual message wrapper panel
         JPanel filaPanel = new JPanel(new GridBagLayout());
         filaPanel.setOpaque(false);
-        filaPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
+        filaPanel.setBorder(new EmptyBorder(3, 5, 3, 5)); // Tight padding on Y axis
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.gridx = 0;
         gbc.gridy = 0;
-        gbc.weightx = 1.0; 
-        
+        gbc.weightx = 1.0;
         gbc.anchor = esMio ? GridBagConstraints.EAST : GridBagConstraints.WEST;
         gbc.fill = GridBagConstraints.NONE;
 
@@ -289,19 +277,18 @@ public class ChatView extends JFrame {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 if (esMio) {
-                    g2.setColor(new Color(57, 79, 133)); // Azul oscuro del emisor
+                    g2.setColor(new Color(57, 79, 133));
                 } else {
-                    g2.setColor(new Color(112, 142, 255)); // Azul claro del receptor
+                    g2.setColor(new Color(112, 142, 255));
                 }
                 g2.fill(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 25, 25));
                 g2.dispose();
             }
         };
         burbuja.setLayout(new BorderLayout());
-        burbuja.setBorder(new EmptyBorder(12, 18, 12, 18));
+        burbuja.setBorder(new EmptyBorder(10, 16, 10, 16));
         burbuja.setOpaque(false);
 
-        // Texto del mensaje adentro de la burbuja
         JLabel lblTexto = new JLabel("<html><p style=\"width: 200px;\">" + msg.getText() + "</p></html>");
         lblTexto.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         lblTexto.setForeground(Color.WHITE);
@@ -309,11 +296,40 @@ public class ChatView extends JFrame {
 
         filaPanel.add(burbuja, gbc);
 
-        panelHistorialMensajes.add(filaPanel);
+        // Clears any previously added layout spacer panel to append the new row securely
+        Component[] components = panelHistorialMensajes.getComponents();
+        for (Component c : components) {
+            if (c instanceof JPanel && "spacerY".equals(c.getName())) {
+                panelHistorialMensajes.remove(c);
+            }
+        }
+
+        // Constraints for adding rows inside the parent panelHistorialMensajes layout grid
+        GridBagConstraints gbcFila = new GridBagConstraints();
+        gbcFila.gridx = 0;
+        gbcFila.gridy = panelHistorialMensajes.getComponentCount();
+        gbcFila.weightx = 1.0;
+        gbcFila.weighty = 0.0; // Rows take minimum height footprint
+        gbcFila.fill = GridBagConstraints.HORIZONTAL;
+        gbcFila.anchor = GridBagConstraints.NORTH;
+        panelHistorialMensajes.add(filaPanel, gbcFila);
+
+        // Appends a transparent filler row at the absolute bottom to push all rows together seamlessly
+        GridBagConstraints gbcSpacer = new GridBagConstraints();
+        gbcSpacer.gridx = 0;
+        gbcSpacer.gridy = gbcFila.gridy + 1;
+        gbcSpacer.weightx = 1.0;
+        gbcSpacer.weighty = 1.0; // Absorbs remainder panel height
+        gbcSpacer.fill = GridBagConstraints.BOTH;
+
+        JPanel spacerY = new JPanel();
+        spacerY.setName("spacerY");
+        spacerY.setOpaque(false);
+        panelHistorialMensajes.add(spacerY, gbcSpacer);
+
         panelHistorialMensajes.revalidate();
         panelHistorialMensajes.repaint();
 
-        // Autoscroll
         SwingUtilities.invokeLater(() -> {
             JScrollBar vertical = scrollChat.getVerticalScrollBar();
             vertical.setValue(vertical.getMaximum());
@@ -335,5 +351,26 @@ public class ChatView extends JFrame {
         EventQueue.invokeLater(() -> {
             new ChatView().setVisible(true);
         });
+    }
+
+    @Override
+    public void onMessageReceived(String textContent) {
+        // Forzar la ejecución en el Event Dispatch Thread (EDT) de Swing
+        SwingUtilities.invokeLater(() -> {
+            // Crear una instancia local del mensaje para pintar en la interfaz
+            // El emisor en este caso es el 'receiverUser' del controlador (la otra persona)
+            User remoteUser = controller.getReceiverUser();
+            User localUser = SessionManager.getInstance().getCurrentUser();
+
+            Message receivedMessage = new Message(remoteUser, localUser, textContent, java.time.LocalDateTime.now().toString());
+
+            // Agregar la burbuja al historial indicando que NO es un mensaje propio (esMio = false)
+            agregarBurbujaMensaje(receivedMessage, false);
+        });
+    }
+
+    @Override
+    public void onDeleteChat() {
+
     }
 }
