@@ -265,7 +265,7 @@ public class UsersListView extends JFrame implements UsersListController.View {
             @Override
             public void mouseClicked(MouseEvent e) {
                 try {
-                    new ChatView().setVisible(true);
+                    new ChatView(usuario).setVisible(true);
                     dispose();
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(UsersListView.this, "ChatView no encontrada.");

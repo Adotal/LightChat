@@ -6,18 +6,18 @@ import java.time.LocalDateTime;
  *
  * @author adotal
  */
-public class Message {
+public class TodosMessage {
 
     private User userSender;
     private User userReceiver;
     private String text;
     private String sendedAt;
 
-    public Message() {
+    public TodosMessage() {
 
     }
 
-    public Message(User userSender, User userReceiver, String text, String sendedAt) {
+    public TodosMessage(User userSender, User userReceiver, String text, String sendedAt) {
         this.userSender = userSender;
         this.userReceiver = userReceiver;
         this.text = text;
