@@ -17,9 +17,9 @@ public class UserDAO extends DatabaseConnection {
     }
 
     // Insert users
-    public void insertUser(User user) {
+    public boolean insertUser(User user) {
 
-        String sql = "INSERT INTO users (name, email, password, state) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO users (name, email, password, is_connected) VALUES (?, ?, ?, ?)";
 
         try {
             PreparedStatement ps;
@@ -27,18 +27,21 @@ public class UserDAO extends DatabaseConnection {
             ps.setString(1, user.getName());
             ps.setString(2, user.getEmail());
             ps.setString(3, user.getPassword());
-            ps.setString(4, user.getState());
+            ps.setBoolean(4, user.getIsConnected());
             ps.executeUpdate();
         } catch (SQLException ex) {
             System.getLogger(UserDAO.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+            return false;
         }
+        return true;
 
     }
 
     // Get all users
-    public List<User> getAllUsers() {
-        List<User> users = new ArrayList<>();
-        String sql = "SELECT * FROM users";
+    public ArrayList<User> getAllUsers() {
+        ArrayList<User> users = new ArrayList<>();
+        // Fetch all but password
+        String sql = "SELECT id_user, name, email, is_connected, last_access FROM users";
 
         try {
 
@@ -50,8 +53,36 @@ public class UserDAO extends DatabaseConnection {
                         rs.getInt("id_user"),
                         rs.getString("name"),
                         rs.getString("email"),
-                        rs.getString("password"),
-                        rs.getString("state"),
+                        rs.getBoolean("is_connected"),
+                        rs.getString("last_access")
+                ));
+
+            }
+        } catch (SQLException ex) {
+            System.getLogger(UserDAO.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+            return null;
+        }
+        return users;
+    }
+    
+       // Get all users except one with given email
+    public ArrayList<User> getAllUsersNotEmail(String email) {
+        ArrayList<User> users = new ArrayList<>();
+        // Fetch all but password
+        String sql = "SELECT id_user, name, email, is_connected, last_access FROM users WHERE email <> ?";
+
+        try {
+
+            PreparedStatement ps = getCon().prepareStatement(sql);            
+            ps.setString(1, email);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+
+                users.add(new User(
+                        rs.getInt("id_user"),
+                        rs.getString("name"),
+                        rs.getString("email"),
+                        rs.getBoolean("is_connected"),
                         rs.getString("last_access")
                 ));
 
@@ -77,7 +108,7 @@ public class UserDAO extends DatabaseConnection {
                         rs.getString("name"),
                         rs.getString("email"),
                         rs.getString("password"),
-                        rs.getString("state"),
+                        rs.getBoolean("is_connected"),
                         rs.getString("last_access")
                 );
             }
@@ -102,7 +133,7 @@ public class UserDAO extends DatabaseConnection {
                         rs.getString("name"),
                         rs.getString("email"),
                         rs.getString("password"),
-                        rs.getString("state"),
+                        rs.getBoolean("is_connected"),
                         rs.getString("last_access")
                 );
             }
@@ -136,6 +167,25 @@ public class UserDAO extends DatabaseConnection {
         }
 
         return true;
+    }
+    
+      // Will return false if fails or user doesnt exists
+    public boolean changeIsConnected(String email, boolean newStatus) {
 
+        // Attempt to change password
+        String sql = "UPDATE users SET is_connected = ? WHERE email = ?";
+
+        try {
+            PreparedStatement ps;
+            ps = getCon().prepareStatement(sql);
+            ps.setBoolean(1, newStatus);
+            ps.setString(2, email);
+            ps.executeUpdate();
+        } catch (SQLException ex) {
+            System.getLogger(UserDAO.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
+            return false;
+        }
+
+        return true;
     }
 }

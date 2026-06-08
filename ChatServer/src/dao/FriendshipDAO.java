@@ -114,7 +114,7 @@ public class FriendshipDAO extends DatabaseConnection {
                         rs.getString("Nombre"),
                         rs.getString("Email"),
                         rs.getString("Contraseña"),
-                        rs.getString("Estado"),
+                        rs.getBoolean("is_connected"),
                         rs.getString("Ultimo_acceso")
                 ));
             }
@@ -152,7 +152,7 @@ public class FriendshipDAO extends DatabaseConnection {
                         rs.getString("Nombre"),
                         rs.getString("Email"),
                         rs.getString("Contraseña"),
-                        rs.getString("Estado"),
+                        rs.getBoolean("is_connected"),
                         rs.getString("Ultimo_acceso")
                 );
                 FriendRequest fr = new FriendRequest(

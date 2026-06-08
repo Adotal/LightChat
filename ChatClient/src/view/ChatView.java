@@ -90,7 +90,7 @@ public class ChatView extends JFrame {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 // Si está conectado: Azul #2544c4 si no: Gris azulado #8ba2b3
-                if (receiverUser != null && receiverUser.isIsConnected()) {
+                if (receiverUser != null && receiverUser.getIsConnected()) {
                     g2.setColor(new Color(37, 68, 196));
                 } else {
                     g2.setColor(new Color(139, 162, 179));
@@ -243,7 +243,7 @@ public class ChatView extends JFrame {
     //mandar al pojo de user
     public void actualizarEstadoUsuario() {
         if (receiverUser != null) {
-            lblUserName.setText(receiverUser.getUserName());
+            lblUserName.setText(receiverUser.getName());
             lblStatusCircle.repaint(); 
         }
     }

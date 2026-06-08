@@ -50,3 +50,4 @@ ChatClient/.env
 
 # Do not exclude lib/ (contains mysql-connector)
 !lib/*
+ChatClient/.env

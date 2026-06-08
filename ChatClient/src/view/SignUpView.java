@@ -57,8 +57,7 @@ public class SignUpView extends JFrame {
         gbc.insets = new Insets(0, 4, 8, 4);
         panelPrincipal.add(lblUser, gbc);
 
-        txtUsuario = crearCampoTexto("Anna");
-        ///TEMPORAL 
+        txtUsuario = crearCampoTexto("");        
 
         gbc.gridy = 2;
         gbc.insets = new Insets(0, 0, 24, 0);
@@ -70,7 +69,7 @@ public class SignUpView extends JFrame {
         gbc.insets = new Insets(0, 4, 8, 4);
         panelPrincipal.add(lblEmail, gbc);
 
-        txtEmail = crearCampoTexto("hello@reallygreatsite.com"); //TEMPORAL
+        txtEmail = crearCampoTexto("");
 
         gbc.gridy = 4;
         gbc.insets = new Insets(0, 0, 24, 0);
@@ -82,7 +81,7 @@ public class SignUpView extends JFrame {
         gbc.insets = new Insets(0, 4, 8, 4);
         panelPrincipal.add(lblPass, gbc);
 
-        txtPassword = crearCampoPassword("******"); //cambiar 
+        txtPassword = crearCampoPassword("");
 
         gbc.gridy = 6;
         gbc.insets = new Insets(0, 0, 60, 0);
@@ -349,10 +348,10 @@ public class SignUpView extends JFrame {
 
                     } else if (tipo.equals("SIGNUP_ERROR")) {
                         // Extract custom error message from server if it exists
-                        String errorMsg = rootNode.has("message") ? rootNode.get("message").asText() : "Registro no completado";
+                        String errorMsg = rootNode.has("message") ? rootNode.get("message").asText() : "Correo ya utilizado";
 
                         // On Login failure, display dialog cleanly
-                        JOptionPane.showMessageDialog(this, "Error en signup: " + errorMsg, "Error de acceso", JOptionPane.ERROR_MESSAGE);
+                        JOptionPane.showMessageDialog(this, "Error en signup: " + errorMsg);
                     }
                 }
             } catch (Exception ex) {

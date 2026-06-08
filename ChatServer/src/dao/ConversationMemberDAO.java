@@ -69,7 +69,7 @@ public class ConversationMemberDAO extends DatabaseConnection {
                         rs.getString("Nombre"),
                         rs.getString("Email"),
                         rs.getString("Contraseña"),
-                        rs.getString("Estado"),
+                        rs.getBoolean("is_connected"),
                         rs.getString("Ultimo_acceso")
                 );
                 members.add(u);

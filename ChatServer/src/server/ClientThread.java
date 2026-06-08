@@ -1,9 +1,11 @@
 package server;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import dao.UserDAO;
 import java.io.IOException;
 import java.net.Socket;
+import java.util.ArrayList;
 import model.User;
 
 /**
@@ -67,11 +69,29 @@ public class ClientThread implements Runnable {
                             UserDAO userDAO = new UserDAO();
                             User retrievedUser = userDAO.getUserByEmail(emailReq);
 
-                            // Validar y responder al cliente
+                            // Validate password and send client response
                             if (retrievedUser != null && retrievedUser.getPassword().equals(passReq)) {
+
                                 server.writeConsole("[Cliente #" + clientId + "] LOGIN SUCCESS: For " + emailReq);
-                                // Respuesta al cliente (el println agrega automáticamente el \n)
-                                out.println("{\"type\": \"LOGIN_SUCCESS\", \"message\": \"Bienvenido\"}");
+
+                                // Change con status to true
+                                userDAO.changeIsConnected(emailReq, true);
+//                                retrievedUser.setIsConnected(true);
+
+                                // Clear the password for security before sending it over the network
+                                retrievedUser.setPassword(null);
+
+                                // Create a dynamic Jackson JSON object
+                                com.fasterxml.jackson.databind.node.ObjectNode responseNode = mapper.createObjectNode();
+                                responseNode.put("type", "LOGIN_SUCCESS");
+                                responseNode.put("message", "Bienvenido");
+                                // Convert User object into a JsonNode and nest it
+                                responseNode.set("user", mapper.valueToTree(retrievedUser));
+
+                                // Convert the entire object node to a string and send it
+                                String jsonResponse = mapper.writeValueAsString(responseNode);
+                                out.println(jsonResponse);
+
                             } else {
                                 server.writeConsole("[Cliente #" + clientId + "] LOGIN FAILURE: For " + emailReq);
                                 out.println("{\"type\": \"LOGIN_ERROR\", \"message\": \"Credenciales incorrectas\"}");
@@ -81,30 +101,30 @@ public class ClientThread implements Runnable {
                             String name = rootNode.get("name").asText();
                             String emailReq = rootNode.get("email").asText();
                             String passReq = rootNode.get("password").asText();
-                            String state = rootNode.get("state").asText();
+                            // isConnected is false by default
 
                             server.writeConsole("[Cliente #" + clientId + "] SIGNUP REQUEST: Name" + name + "Email: " + emailReq + " Password: " + passReq);
 
                             // Retrieve and verify from DB
                             UserDAO userDAO = new UserDAO();
-                            User newUser = new User(name, emailReq, passReq, state);
+                            User newUser = new User(name, emailReq, passReq, false);
 
-                            userDAO.insertUser(newUser);
+                            if (userDAO.insertUser(newUser)) {
 
-//                            if SUCCESS
-                            server.writeConsole("[Cliente #" + clientId + "] SIGNUP SUCCESS: For " + emailReq);
-                            // Respuesta al cliente
-                            out.println("{\"type\": \"SIGNUP_SUCCESS\"}");
+                                // If SUCCESS
+                                server.writeConsole("[Cliente #" + clientId + "] SIGNUP_SUCCESS: For " + emailReq);
+                                // Respuesta al cliente
+                                out.println("{\"type\": \"SIGNUP_SUCCESS\"}");
 
-                            // Validar y responder al cliente
-//                            if (retrievedUser != null && retrievedUser.getPassword().equals(passReq)) {
-//                                server.writeConsole("[Cliente #" + clientId + "] LOGIN SUCCESS: For " + emailReq);
-//                                // Respuesta al cliente (el println agrega automáticamente el \n)
-//                                out.println("{\"type\": \"LOGIN_SUCCESS\", \"message\": \"Bienvenido\"}");
-//                            } else {
-//                                server.writeConsole("[Cliente #" + clientId + "] LOGIN FAILURE: For " + emailReq);
-//                                out.println("{\"type\": \"LOGIN_ERROR\", \"message\": \"Credenciales incorrectas\"}");
-//                            }
+                            } else {
+
+                                // If SUCCESS
+                                server.writeConsole("[Cliente #" + clientId + "] SIGNUP_ERROR: For " + emailReq);
+                                // Respuesta al cliente
+                                out.println("{\"type\": \"SIGNUP_ERROR\"}");
+
+                            }
+
                         } else if (tipo.equals("RECOVER_PASSWORD")) {
 
                             String emailReq = rootNode.get("email").asText();
@@ -128,6 +148,37 @@ public class ClientThread implements Runnable {
 
                             }
 
+                        } else if (tipo.equals("LOGOUT_REQUEST")) {
+
+                            // Get email to logout
+                            String emailReq = rootNode.get("email").asText();
+                            server.writeConsole("[Cliente #" + clientId + "] LOGOUT_REQUEST: Email: " + emailReq);
+
+                            UserDAO userDAO = new UserDAO();
+                            // Make is_connected false
+                            userDAO.changeIsConnected(emailReq, false);
+
+                            // HERE ALL TODOS MESSAGES WITH EMAIL emailReq SHOULD BE DELETED
+                            // Return success
+                            out.println("{\"type\": \"LOGOUT_SUCCESS\"}");
+                        } else if (tipo.equals("FETCH_ALL_USERS")) {
+
+                            // Get email not to load
+                            String emailReq = rootNode.get("email").asText();
+
+                            UserDAO userDAO = new UserDAO();
+                            ArrayList<User> activeUsers = userDAO.getAllUsersNotEmail(emailReq);
+
+                            // Create the wrapper envelope JSON object 
+                            ObjectNode response = mapper.createObjectNode();
+                            response.put("type", "UPDATE_USERS_LIST");
+
+                            // Convert the ArrayList directly into a JSON Array Node
+                            response.set("users", mapper.valueToTree(activeUsers));
+
+                            // Send it to socket
+                            String rawJsonToSend = mapper.writeValueAsString(response);
+                            out.println(rawJsonToSend);
                         }
                     }
                 } catch (Exception jsonEx) {

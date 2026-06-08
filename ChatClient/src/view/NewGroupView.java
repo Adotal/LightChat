@@ -171,7 +171,7 @@ public class NewGroupView extends JFrame {
     // INSTANCIA UNA NUEVA FILASELECCION Y LA ENGANCHA AL CONTENEDOR VERTICAL DE LA LISTA
     public void agregarFilaSeleccionUI(UserGroup usuario) {
         // DETERMINA EL COLOR DE ESTADO BASADO EN LA CONEXIÓN BOOLEANA DE LA ENTIDAD
-        Color colorEstado = usuario.isIsConnected() ? new Color(15, 50, 200) : new Color(165, 210, 255); 
+        Color colorEstado = usuario.getIsConnected() ? new Color(15, 50, 200) : new Color(165, 210, 255); 
 
         FilaSeleccion fila = new FilaSeleccion(usuario, colorEstado);
         fila.setMaximumSize(new Dimension(Integer.MAX_VALUE, 70)); 
@@ -217,7 +217,7 @@ class FilaSeleccion extends JPanel {
         cuadroIzquierdo.setPreferredSize(new Dimension(40, 40));
 
         // ETIQUETA CONTENEDORA ENCARGADA DE DESPLEGAR EL NOMBRE DE LA INSTANCIA DE USUARIO
-        JLabel lblName = new JLabel(usuario.getUserName());
+        JLabel lblName = new JLabel(usuario.getName());
         lblName.setForeground(Color.WHITE);
         lblName.setFont(new Font("Segoe UI", Font.BOLD, 24));
 
