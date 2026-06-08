@@ -1,0 +1,42 @@
+@startuml 16-historial-grupo
+title Historial y miembros de grupo (FETCH_GROUP_HISTORY / FETCH_GROUP_MEMBERS)
+
+actor Usuario
+participant "GroupChatView" as View
+participant "GroupsController" as Ctrl
+participant "ClientSocket" as Sock
+participant "ServerDispatcher" as Disp
+participant "ClientThread" as CT
+participant "ConversationDAO" as CDAO
+participant "MessageDAO" as MDAO
+participant "GroupInvitationDAO" as GIDAO
+database "BD (MySQL)" as DB
+
+== Historial del grupo ==
+Usuario -> View : abre chat de grupo
+View -> Ctrl : requestHistory()
+Ctrl -> Sock : sendText({type:"FETCH_GROUP_HISTORY", groupId})
+Sock ->> CT : línea JSON
+CT -> CDAO : conversación GROUP por groupId
+CT -> MDAO : getMessages(idConversation)
+MDAO -> DB : SELECT messages ORDER BY sent_date
+MDAO --> CT : mensajes (con senderName)
+CT --> Sock : {type:"GROUP_HISTORY", messages[]}
+Sock -> Disp : dispatch(rawJson)
+Disp -> Ctrl : handler GROUP_HISTORY
+Ctrl -> View : muestra historial
+
+== Miembros del grupo ==
+Usuario -> View : ver miembros
+View -> Ctrl : fetchMembers()
+Ctrl -> Sock : sendText({type:"FETCH_GROUP_MEMBERS", groupId})
+Sock ->> CT : línea JSON
+CT -> CDAO : getMembers(idConversation)
+CT -> GIDAO : getPendingInvitations(idGroup)
+CDAO --> CT : miembros aprobados
+GIDAO --> CT : invitaciones pendientes
+CT --> Sock : {type:"GROUP_MEMBERS", members[], pending[]}
+Sock -> Disp : dispatch(rawJson)
+Disp -> Ctrl : handler GROUP_MEMBERS
+Ctrl -> View : muestra miembros y pendientes
+@enduml

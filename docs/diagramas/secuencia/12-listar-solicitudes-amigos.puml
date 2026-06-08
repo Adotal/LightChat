@@ -1,0 +1,38 @@
+@startuml 12-listar-solicitudes-amigos
+title Listar solicitudes y amigos (FETCH_FRIEND_REQUESTS / FETCH_FRIENDS)
+
+actor Usuario
+participant "View\n(FriendsRequest / UsersList)" as View
+participant "Controller" as Ctrl
+participant "ClientSocket" as Sock
+participant "ServerDispatcher" as Disp
+participant "ClientThread" as CT
+participant "FriendshipDAO" as FDAO
+database "BD (MySQL)" as DB
+
+== Solicitudes de amistad pendientes ==
+Usuario -> View : abre notificaciones
+View -> Ctrl : fetchAll()
+Ctrl -> Sock : sendText({type:"FETCH_FRIEND_REQUESTS", userId})
+Sock ->> CT : línea JSON
+CT -> FDAO : getReceivedRequests / getSentRequests(userId)
+FDAO -> DB : SELECT friendships(status='PENDING')
+FDAO --> CT : recibidas + enviadas
+CT --> Sock : {type:"FRIEND_REQUESTS_LIST", received[], sent[]}
+Sock -> Disp : dispatch(rawJson)
+Disp -> Ctrl : handler FRIEND_REQUESTS_LIST
+Ctrl -> View : muestra solicitudes
+
+== Lista de amigos confirmados ==
+Usuario -> View : abre pestaña "Amigos"
+View -> Ctrl : fetchFriends()
+Ctrl -> Sock : sendText({type:"FETCH_FRIENDS", userId})
+Sock ->> CT : línea JSON
+CT -> FDAO : getFriends(userId)
+FDAO -> DB : SELECT friendships(status='APPROVED')
+FDAO --> CT : amigos
+CT --> Sock : {type:"FRIENDS_LIST", friends[]}
+Sock -> Disp : dispatch(rawJson)
+Disp -> Ctrl : handler FRIENDS_LIST
+Ctrl -> View : muestra amigos
+@enduml

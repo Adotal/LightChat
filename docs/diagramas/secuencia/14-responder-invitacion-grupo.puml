@@ -1,0 +1,47 @@
+@startuml 14-responder-invitacion-grupo
+title Responder invitación a grupo (RESPOND_GROUP_INVITATION)
+
+actor Usuario
+participant "FriendsRequestView" as View
+participant "FriendsRequestController" as Ctrl
+participant "ClientSocket" as Sock
+participant "ServerDispatcher" as Disp
+participant "ClientThread" as CT
+participant "GroupInvitationDAO" as GIDAO
+participant "ConversationDAO" as CDAO
+participant "GroupDAO" as GDAO
+participant "JavaServer" as Server
+database "BD (MySQL)" as DB
+
+Usuario -> View : Aceptar / Rechazar invitación
+View -> Ctrl : respondGroup(idInvitation, accept)
+Ctrl -> Sock : sendText({type:"RESPOND_GROUP_INVITATION",\nidInvitation, accept})
+Sock ->> CT : línea JSON
+
+alt accept == true
+    CT -> GIDAO : approve(idInvitation)
+    GIDAO -> DB : UPDATE group_invitations SET status='APPROVED'
+    CT -> CDAO : addMember(idConversationGroup, userId)
+    CDAO -> DB : INSERT conversation_members
+else accept == false
+    CT -> GIDAO : deny(idInvitation)
+    GIDAO -> DB : UPDATE group_invitations SET status='DENIED'
+end
+
+CT -> CT : evaluateGroupPermanence(idGroup)
+note right of CT
+  Regla: grupo debe tener >= 3 miembros
+  (aprobados + pendientes); si no, se elimina
+end note
+alt grupo no alcanza el mínimo
+    CT -> GDAO : deleteGroupAndNotify(idGroup)
+    GDAO -> DB : DELETE conversación + invitaciones + grupo
+    CT -> Server : push GROUP_DELETED a implicados
+end
+
+CT --> Sock : {type:"GROUP_INVITATION_RESPONDED"}
+Sock -> Disp : dispatch(rawJson)
+Disp -> Ctrl : handler GROUP_INVITATION_RESPONDED
+Ctrl -> Ctrl : fetchAll()
+Ctrl -> View : refresca invitaciones y grupos
+@enduml

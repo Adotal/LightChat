@@ -1,0 +1,29 @@
+@startuml 06-recibir-mensaje
+title Recibir mensaje (lado receptor)
+
+participant "ClientSocket\n(hilo listen)" as Sock
+participant "ServerDispatcher" as Disp
+participant "ChatController" as Ctrl
+participant "ChatView" as View
+participant "UsersListController" as ULCtrl
+participant "UsersListView" as ULView
+actor Usuario
+
+Sock -> Disp : dispatch(rawJson {type:"SEND_MESSAGE"})
+Disp -> Disp : SwingUtilities.invokeLater (EDT)
+
+alt chat con ese usuario está abierto
+    Disp -> Ctrl : handler SEND_MESSAGE
+    Ctrl -> Ctrl : msg = treeToValue(message, TodosMessage)
+    Ctrl -> Ctrl : valida chat_type=TODOS y access_mode
+    alt remitente == usuario del chat abierto
+        Ctrl -> Ctrl : chat.getMessages().add(uiMsg)
+        Ctrl -> View : onMessageReceived(text)
+        View -> Usuario : muestra burbuja del mensaje
+    end
+else chat no abierto
+    Disp -> ULCtrl : handler SEND_MESSAGE
+    ULCtrl -> ULView : marca conversación con "Mensaje nuevo..."
+    ULView -> Usuario : indicador en lista (Todos / Amigos)
+end
+@enduml

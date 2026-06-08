@@ -1,0 +1,40 @@
+@startuml 05-enviar-mensaje-amigos
+title Enviar mensaje en chat AMIGOS (persistente / FRIEND)
+
+actor Usuario
+participant "ChatView" as View
+participant "ChatController" as Ctrl
+participant "ClientSocket" as Sock
+participant "ClientThread\n(remitente)" as CT
+participant "FriendshipDAO" as FDAO
+participant "ConversationDAO" as CDAO
+participant "MessageDAO" as MDAO
+participant "JavaServer" as Server
+participant "ClientThread\n(receptor)" as CTR
+database "BD (MySQL)" as DB
+
+Usuario -> View : escribe texto y Enter
+View -> Ctrl : sendMessage(text)
+Ctrl -> Sock : sendText({type:"SEND_MESSAGE",\nchat_type:"TODOS", access_mode:"AMIGOS", message})
+Sock ->> CT : línea JSON
+
+CT -> FDAO : areFriends(idSender, idReceiver)
+FDAO -> DB : SELECT friendships WHERE status='APPROVED'
+FDAO --> CT : true
+note right of CT : amigos + access_mode=AMIGOS => tipo FRIEND (persistente)
+
+CT -> CDAO : obtener/crear conversación FRIEND
+CDAO -> DB : SELECT/INSERT conversations(type='FRIEND')
+CDAO --> CT : idConversation
+CT -> MDAO : insertMessage(new Message(idConv, idSender, text))
+MDAO -> DB : INSERT INTO messages
+
+CT -> Server : findClientByUserEmail(emailReceiver)
+alt receptor conectado
+    Server --> CT : ClientThread receptor
+    CT -> CTR : sendMessage(rawJsonPayload)
+else receptor offline
+    Server --> CT : null
+    note right of CT : queda guardado; lo verá vía\nFETCH_CONVERSATION_HISTORY (ver 07)
+end
+@enduml

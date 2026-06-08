@@ -1,0 +1,45 @@
+@startuml 13-crear-grupo
+title Crear grupo (CREATE_GROUP)
+
+actor Usuario
+participant "NewGroupView" as View
+participant "NewGroupController" as Ctrl
+participant "ClientSocket" as Sock
+participant "ServerDispatcher" as Disp
+participant "ClientThread" as CT
+participant "GroupDAO" as GDAO
+participant "ConversationDAO" as CDAO
+participant "GroupInvitationDAO" as GIDAO
+participant "JavaServer" as Server
+database "BD (MySQL)" as DB
+
+Usuario -> View : título + usuarios invitados
+View -> Ctrl : createGroup(title, invitedEmails)
+Ctrl -> Sock : sendText({type:"CREATE_GROUP",\nownerId, title, invitedEmails[]})
+Sock ->> CT : línea JSON
+
+CT -> GDAO : createGroup(title, ownerId)
+GDAO -> DB : INSERT chat_groups
+GDAO --> CT : idGroup
+CT -> CDAO : crear conversación GROUP vinculada
+CDAO -> DB : INSERT conversations(type='GROUP'), add owner como miembro
+
+loop por cada invitado
+    CT -> GIDAO : invite(idGroup, invitedUserId)
+    GIDAO -> DB : INSERT group_invitations(status='PENDING')
+    CT -> Server : pushToUser(invitado, GROUP_INVITATION_RECEIVED)
+    alt invitado conectado
+        Server -> CT : sendMessage({type:"GROUP_INVITATION_RECEIVED"})
+    end
+end
+
+CT --> Sock : {type:"GROUP_CREATED"}
+Sock -> Disp : dispatch(rawJson)
+alt GROUP_CREATED
+    Disp -> Ctrl : handler GROUP_CREATED
+    Ctrl -> View : cierra y refresca grupos
+else GROUP_ERROR
+    Disp -> Ctrl : handler GROUP_ERROR
+    Ctrl -> View : notifica error
+end
+@enduml

@@ -1,0 +1,36 @@
+@startuml 11-responder-solicitud-amistad
+title Responder solicitud de amistad (RESPOND_FRIEND_REQUEST)
+
+actor Usuario
+participant "FriendsRequestView" as View
+participant "FriendsRequestController" as Ctrl
+participant "ClientSocket" as Sock
+participant "ServerDispatcher" as Disp
+participant "ClientThread" as CT
+participant "FriendshipDAO" as FDAO
+participant "JavaServer" as Server
+database "BD (MySQL)" as DB
+
+Usuario -> View : Aceptar / Rechazar solicitud
+View -> Ctrl : respondFriend(idFriendship, accept)
+Ctrl -> Sock : sendText({type:"RESPOND_FRIEND_REQUEST",\nidFriendship, accept})
+Sock ->> CT : línea JSON
+
+alt accept == true
+    CT -> FDAO : acceptRequest(idFriendship)
+    FDAO -> DB : UPDATE friendships SET status='APPROVED'
+else accept == false
+    CT -> FDAO : denyRequest(idFriendship)
+    FDAO -> DB : UPDATE friendships SET status='DENIED'
+end
+
+CT --> Sock : {type:"FRIEND_REQUEST_RESPONDED"}
+CT -> Server : notificar a ambos usuarios
+Server -> CT : pushToUser(ambos, FRIENDS_LIST_UPDATED)
+
+Sock -> Disp : dispatch(rawJson)
+Disp -> Ctrl : handler FRIEND_REQUEST_RESPONDED
+Ctrl -> Ctrl : fetchAll()
+Ctrl -> View : refresca solicitudes y lista de amigos
+View -> Usuario : vista actualizada
+@enduml

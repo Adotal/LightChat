@@ -1,0 +1,38 @@
+@startuml 09-lista-usuarios-broadcast
+title Lista de usuarios y broadcast de estado (UPDATE_USERS_LIST)
+
+actor Usuario
+participant "UsersListView" as View
+participant "UsersListController" as Ctrl
+participant "ClientSocket" as Sock
+participant "ServerDispatcher" as Disp
+participant "ClientThread" as CT
+participant "JavaServer" as Server
+participant "UserDAO" as UDAO
+database "BD (MySQL)" as DB
+
+== Petición explícita al abrir la vista ==
+Usuario -> View : abre UsersListView
+View -> Ctrl : fetchAllUsers()
+Ctrl -> Sock : sendText({type:"FETCH_ALL_USERS", email})
+Sock ->> CT : línea JSON
+CT -> CT : sendUserListUpdate()
+CT -> UDAO : getAllUsersNotEmail(email)
+UDAO -> DB : SELECT users WHERE email <> ?
+UDAO --> CT : lista usuarios (+ is_connected)
+CT --> Sock : {type:"UPDATE_USERS_LIST", users[]}
+Sock -> Disp : dispatch(rawJson)
+Disp -> Ctrl : handler UPDATE_USERS_LIST
+Ctrl -> View : actualiza pestaña "Todos"
+
+== Broadcast por cambio de estado (login/logout de cualquiera) ==
+note over Server : disparado por login/logout/desconexión
+Server -> Server : broadcastUserStatus()
+loop por cada cliente activo
+    Server -> CT : sendUserListUpdate()
+    CT --> Sock : {type:"UPDATE_USERS_LIST", users[]}
+    Sock -> Disp : dispatch(rawJson)
+    Disp -> Ctrl : handler UPDATE_USERS_LIST
+    Ctrl -> View : refresca estados de conexión
+end
+@enduml

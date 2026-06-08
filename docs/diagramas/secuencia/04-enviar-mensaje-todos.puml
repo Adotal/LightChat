@@ -1,0 +1,43 @@
+@startuml 04-enviar-mensaje-todos
+title Enviar mensaje en chat TODOS (efímero / TEMP)
+
+actor Usuario
+participant "ChatView" as View
+participant "ChatController" as Ctrl
+participant "ClientSocket" as Sock
+participant "ClientThread\n(remitente)" as CT
+participant "FriendshipDAO" as FDAO
+participant "ConversationDAO" as CDAO
+participant "MessageDAO" as MDAO
+participant "JavaServer" as Server
+participant "ClientThread\n(receptor)" as CTR
+database "BD (MySQL)" as DB
+
+Usuario -> View : escribe texto y Enter
+View -> Ctrl : sendMessage(text)
+Ctrl -> Ctrl : new Message(remitente, receptor, text)
+Ctrl -> Ctrl : chat.getMessages().add(msg)
+Ctrl -> Sock : sendText({type:"SEND_MESSAGE",\nchat_type:"TODOS", access_mode:"TODOS", message})
+Sock ->> CT : línea JSON
+
+CT -> FDAO : areFriends(idSender, idReceiver)
+FDAO -> DB : SELECT friendships
+FDAO --> CT : false (o access_mode != AMIGOS)
+note right of CT : access_mode=TODOS => tipo TEMP (efímero)
+
+CT -> CDAO : obtener/crear conversación TEMP
+CDAO -> DB : SELECT/INSERT conversations(type='TEMP')
+CDAO --> CT : idConversation
+CT -> MDAO : insertMessage(new Message(idConv, idSender, text))
+MDAO -> DB : INSERT INTO messages
+
+CT -> Server : findClientByUserEmail(emailReceiver)
+alt receptor conectado
+    Server --> CT : ClientThread receptor
+    CT -> CTR : sendMessage(rawJsonPayload)
+    CTR ->> "ChatView receptor" : (ver 06-recibir-mensaje)
+else receptor offline
+    Server --> CT : null
+    CT -> CT : log "OFFLINE" (queda solo persistido como TEMP)
+end
+@enduml

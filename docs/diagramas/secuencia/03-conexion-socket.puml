@@ -1,0 +1,50 @@
+@startuml 03-conexion-socket
+title Conexión por socket y recepción de mensajes (infraestructura)
+
+participant "Controller" as Ctrl
+participant "ClientSocket\n(singleton)" as Sock
+participant "Hilo de red\n(listen)" as Net
+participant "ServerDispatcher" as Disp
+participant "JavaServer" as Server
+participant "ClientThread" as CT
+
+== Establecimiento de conexión (lado cliente) ==
+Ctrl -> Sock : tryConnect()
+activate Sock
+Sock -> Net : new Thread(retry loop)
+activate Net
+loop hasta conectar
+    Net -> Net : new Socket(host, port)
+    alt conexión fallida
+        Net -> Net : sleep(2s) y reintenta
+        Net -> Disp : dispatchStatus("RECONNECTING")
+    else conectado
+        Net -> Disp : dispatchStatus("CONNECTED")
+    end
+end
+deactivate Sock
+
+== Aceptación de conexión (lado servidor) ==
+Server -> Server : new ServerSocket(1235)
+loop por cada cliente
+    Server -> Server : ss.accept()
+    Server -> CT : new ClientThread(socket, id, this)
+    Server -> Server : activeClients.put(id, thread)
+    Server -> CT : new Thread(thread).start()
+end
+
+== Bucle de escucha (lado cliente) ==
+loop conexión abierta
+    Net -> Net : reader.readLine() (bloquea)
+    Net -> Disp : dispatch(rawJson)
+    Disp -> Disp : type = root.get("type")
+    Disp -> Disp : SwingUtilities.invokeLater (EDT)
+    Disp -> Ctrl : handler registrado(type).accept(node)
+end
+deactivate Net
+
+note over Sock,Disp
+  Envío: Controller -> ClientSocket.sendText(json)
+  agrega "\n" y escribe en OutputStream.
+end note
+@enduml

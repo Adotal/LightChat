@@ -1,0 +1,34 @@
+@startuml 08-logout
+title Cierre de sesión (LOGOUT)
+
+actor Usuario
+participant "UsersListView" as View
+participant "UsersListController" as Ctrl
+participant "ClientSocket" as Sock
+participant "ServerDispatcher" as Disp
+participant "ClientThread" as CT
+participant "UserDAO" as UDAO
+participant "ConversationDAO" as CDAO
+participant "JavaServer" as Server
+database "BD (MySQL)" as DB
+
+Usuario -> View : clic "Cerrar sesión"
+View -> Ctrl : logout()
+Ctrl -> Sock : sendText({type:"LOGOUT_REQUEST", email})
+Sock ->> CT : línea JSON
+
+CT -> UDAO : changeIsConnected(email, false)
+UDAO -> DB : UPDATE users SET is_connected=0
+CT -> CDAO : cleanupTempConversations(userId)
+CDAO -> DB : DELETE conversations(type='TEMP') del usuario
+note right of CT : notifica DELETE_CHAT a otros\nmiembros de chats TEMP
+CT -> Server : broadcastUserStatus()
+Server -> CT : sendUserListUpdate() (a cada cliente)
+CT --> Sock : {type:"LOGOUT_SUCCESS"}
+
+Sock -> Disp : dispatch(rawJson)
+Disp -> Ctrl : handler LOGOUT_SUCCESS
+Ctrl -> Ctrl : SessionManager.logout()
+Ctrl -> View : onLogoutSuccess()
+View -> Usuario : abre LoginView
+@enduml

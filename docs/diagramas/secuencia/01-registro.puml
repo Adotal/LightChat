@@ -1,0 +1,44 @@
+@startuml 01-registro
+title Registro de usuario (SIGNUP)
+
+actor Usuario
+participant "SignUpView" as View
+participant "SignUpController" as Ctrl
+participant "ClientSocket" as Sock
+participant "ServerDispatcher" as Disp
+participant "ClientThread" as CT
+participant "UserDAO" as DAO
+database "BD (MySQL)" as DB
+
+Usuario -> View : completa nombre, email, password
+View -> Ctrl : signUp(name, email, password)
+Ctrl -> Ctrl : new SignUpRequest(...)
+Ctrl -> Sock : sendText(json {type:"SIGNUP"})
+Sock ->> CT : línea JSON + "\n"
+
+CT -> CT : mapper.readTree(json)
+CT -> DAO : getUserByEmail(email)
+DAO -> DB : SELECT * FROM users WHERE email
+DB --> DAO : usuario / null
+DAO --> CT : resultado
+
+alt email disponible
+    CT -> DAO : insertUser(new User(...))
+    DAO -> DB : INSERT INTO users
+    DB --> DAO : ok
+    CT --> Sock : {type:"SIGNUP_SUCCESS"}
+else email ya registrado
+    CT --> Sock : {type:"SIGNUP_ERROR", message}
+end
+
+Sock -> Disp : dispatch(rawJson)
+Disp -> Disp : SwingUtilities.invokeLater (EDT)
+alt SIGNUP_SUCCESS
+    Disp -> Ctrl : handler SIGNUP_SUCCESS
+    Ctrl -> View : onSignUpSuccess()
+    View -> Usuario : vuelve a LoginView
+else SIGNUP_ERROR
+    Disp -> Ctrl : handler SIGNUP_ERROR
+    Ctrl -> View : onSignUpError(message)
+end
+@enduml

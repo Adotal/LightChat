@@ -1,0 +1,36 @@
+@startuml 15-mensaje-grupo
+title Enviar mensaje de grupo (SEND_MESSAGE chat_type=GROUP)
+
+actor Usuario
+participant "GroupChatView" as View
+participant "GroupsController" as Ctrl
+participant "ClientSocket" as Sock
+participant "ClientThread\n(remitente)" as CT
+participant "ConversationDAO" as CDAO
+participant "MessageDAO" as MDAO
+participant "JavaServer" as Server
+participant "ClientThread\n(miembros)" as CTM
+database "BD (MySQL)" as DB
+
+Usuario -> View : escribe texto y Enter
+View -> Ctrl : sendGroupMessage(text)
+Ctrl -> Sock : sendText({type:"SEND_MESSAGE", chat_type:"GROUP",\ngroup_id, sender, text})
+Sock ->> CT : línea JSON
+
+CT -> CT : handleGroupMessage(node)
+CT -> CDAO : obtener conversación GROUP por group_id
+CDAO --> CT : idConversation
+CT -> MDAO : insertMessage(new Message(idConv, idSender, text))
+MDAO -> DB : INSERT INTO messages
+
+CT -> CDAO : getMembers(idConversation)
+CDAO --> CT : lista de miembros
+loop por cada miembro (excepto remitente)
+    CT -> Server : findClientByUserEmail(miembro)
+    alt miembro conectado
+        Server --> CT : ClientThread miembro
+        CT -> CTM : sendMessage(rawJsonPayload)
+        CTM -->> "GroupChatView miembro" : onMessageReceived(text)
+    end
+end
+@enduml

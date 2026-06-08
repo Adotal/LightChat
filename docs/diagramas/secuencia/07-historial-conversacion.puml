@@ -1,0 +1,44 @@
+@startuml 07-historial-conversacion
+title Historial de conversación directa (FETCH_CONVERSATION_HISTORY)
+
+actor Usuario
+participant "ChatView" as View
+participant "ChatController" as Ctrl
+participant "ClientSocket" as Sock
+participant "ServerDispatcher" as Disp
+participant "ClientThread" as CT
+participant "FriendshipDAO" as FDAO
+participant "ConversationDAO" as CDAO
+participant "MessageDAO" as MDAO
+database "BD (MySQL)" as DB
+
+Usuario -> View : abre chat
+View -> Ctrl : requestHistory()
+Ctrl -> Sock : sendText({type:"FETCH_CONVERSATION_HISTORY",\nuserId, otherUserId, access_mode})
+Sock ->> CT : línea JSON
+
+CT -> FDAO : areFriends(userId, otherUserId)
+FDAO --> CT : true / false
+alt access_mode=AMIGOS y son amigos
+    note right of CT : busca conversación tipo FRIEND
+else
+    note right of CT : busca conversación tipo TEMP
+end
+CT -> CDAO : buscar conversación (FRIEND/TEMP)
+CDAO -> DB : SELECT conversations
+CDAO --> CT : idConversation
+CT -> MDAO : getMessages(idConversation)
+MDAO -> DB : SELECT messages ORDER BY sent_date
+MDAO --> CT : lista de mensajes
+CT -> CT : arma array con idSender, content, sentDate
+CT --> Sock : {type:"CONVERSATION_HISTORY", messages[]}
+
+Sock -> Disp : dispatch(rawJson)
+Disp -> Ctrl : handler CONVERSATION_HISTORY
+Ctrl -> Ctrl : valida otherUserId del chat abierto
+loop por cada mensaje
+    Ctrl -> Ctrl : determina remitente y crea Message
+end
+Ctrl -> View : muestra historial
+View -> Usuario : render de mensajes previos
+@enduml

@@ -1,0 +1,53 @@
+@startuml 02-login
+title Inicio de sesión (LOGIN)
+
+actor Usuario
+participant "LoginView" as View
+participant "LoginController" as Ctrl
+participant "ClientSocket" as Sock
+participant "ServerDispatcher" as Disp
+participant "ClientThread" as CT
+participant "UserDAO" as DAO
+participant "JavaServer" as Server
+database "BD (MySQL)" as DB
+
+Usuario -> View : ingresa email y password
+View -> Ctrl : login(email, password)
+Ctrl -> Ctrl : new LoginRequest(email, password)
+Ctrl -> Sock : sendText(json {type:"LOGIN"})
+Sock ->> CT : línea JSON + "\n"
+
+CT -> DAO : getUserByEmail(email)
+DAO -> DB : SELECT * FROM users WHERE email
+DB --> DAO : usuario / null
+DAO --> CT : usuario
+
+alt credenciales válidas
+    CT -> DAO : changeIsConnected(email, true)
+    DAO -> DB : UPDATE users SET is_connected=1
+    CT -> CT : this.userEmail = email
+    CT --> Sock : {type:"LOGIN_SUCCESS", user}
+    CT -> Server : broadcastUserStatus()
+    Server -> CT : sendUserListUpdate() (a cada cliente)
+else credenciales incorrectas
+    CT -> Server : logEvent("AUTH_FAILURE")
+    CT --> Sock : {type:"LOGIN_ERROR", message}
+end
+
+Sock -> Disp : dispatch(rawJson)
+Disp -> Disp : SwingUtilities.invokeLater (EDT)
+alt LOGIN_SUCCESS
+    Disp -> Ctrl : handler LOGIN_SUCCESS
+    Ctrl -> Ctrl : SessionManager.setCurrentUser(user)
+    Ctrl -> View : onLoginSuccess()
+    View -> Usuario : abre UsersListView
+else LOGIN_ERROR
+    Disp -> Ctrl : handler LOGIN_ERROR
+    Ctrl -> Ctrl : contador de intentos++
+    alt intentos >= 3
+        Ctrl -> View : onTooManyAttempts()
+    else
+        Ctrl -> View : onLoginError(message)
+    end
+end
+@enduml

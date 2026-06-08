@@ -1,0 +1,47 @@
+@startuml 17-abandonar-eliminar-grupo
+title Abandonar / Eliminar grupo (LEAVE_GROUP / DELETE_GROUP)
+
+actor Usuario
+participant "GroupChatView" as View
+participant "GroupsController" as Ctrl
+participant "ClientSocket" as Sock
+participant "ServerDispatcher" as Disp
+participant "ClientThread" as CT
+participant "ConversationDAO" as CDAO
+participant "GroupDAO" as GDAO
+participant "JavaServer" as Server
+database "BD (MySQL)" as DB
+
+== Abandonar grupo ==
+Usuario -> View : "Salir del grupo"
+View -> Ctrl : leaveGroup()
+Ctrl -> Sock : sendText({type:"LEAVE_GROUP", groupId, userId})
+Sock ->> CT : línea JSON
+alt usuario es el creador
+    CT -> GDAO : deleteGroupAndNotify(groupId)
+    GDAO -> DB : DELETE conversación + invitaciones + grupo
+    CT -> Server : push GROUP_DELETED a todos los miembros
+else miembro normal
+    CT -> CDAO : removeMember(idConversation, userId)
+    CDAO -> DB : DELETE conversation_members
+    CT --> Sock : {type:"GROUP_LEFT_OK"}
+    CT -> Server : notifica GROUP_MEMBERS_UPDATED al resto
+end
+Sock -> Disp : dispatch(rawJson)
+Disp -> Ctrl : handler GROUP_LEFT_OK / GROUP_DELETED
+Ctrl -> View : cierra chat y vuelve a lista de grupos
+
+== Eliminar grupo (solo creador) ==
+Usuario -> View : "Eliminar grupo"
+View -> Ctrl : deleteGroup()
+Ctrl -> Sock : sendText({type:"DELETE_GROUP", groupId, userId})
+Sock ->> CT : línea JSON
+CT -> CT : valida userId == owner
+CT -> GDAO : deleteGroupAndNotify(groupId)
+GDAO -> DB : DELETE conversación + invitaciones + grupo
+CT -> Server : push GROUP_DELETED a los miembros
+Server -> CT : sendMessage({type:"GROUP_DELETED"})
+CT -->> Disp : dispatch en cada cliente
+Disp -> Ctrl : handler GROUP_DELETED
+Ctrl -> View : cierra chat y refresca grupos
+@enduml

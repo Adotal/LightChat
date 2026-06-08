@@ -1,0 +1,43 @@
+@startuml 10-enviar-solicitud-amistad
+title Enviar solicitud de amistad (SEND_FRIEND_REQUEST)
+
+actor Usuario
+participant "UsersListView" as View
+participant "UsersListController" as Ctrl
+participant "ClientSocket" as Sock
+participant "ServerDispatcher" as Disp
+participant "ClientThread\n(remitente)" as CT
+participant "FriendshipDAO" as FDAO
+participant "JavaServer" as Server
+participant "ClientThread\n(receptor)" as CTR
+database "BD (MySQL)" as DB
+
+Usuario -> View : selecciona usuario y "Agregar amigo"
+View -> Ctrl : sendFriendRequest(receiverEmail)
+Ctrl -> Sock : sendText({type:"SEND_FRIEND_REQUEST",\nsenderId, receiverEmail})
+Sock ->> CT : línea JSON
+
+CT -> FDAO : sendFriendRequest(senderId, receiverId)
+FDAO -> DB : INSERT friendships(status='PENDING')
+alt insertado correctamente
+    FDAO --> CT : ok
+    CT --> Sock : {type:"FRIEND_REQUEST_SENT"}
+    CT -> Server : pushToUser(receiverId, NEW_FRIEND_REQUEST)
+    alt receptor conectado
+        Server -> CTR : sendMessage({type:"NEW_FRIEND_REQUEST"})
+        CTR -->> "UsersListView receptor" : onNewFriendRequest()
+    end
+    CT -> Server : logEvent("FRIEND_REQUEST")
+else error (ya existe / inválido)
+    CT --> Sock : {type:"FRIEND_REQUEST_ERROR", message}
+end
+
+Sock -> Disp : dispatch(rawJson)
+alt FRIEND_REQUEST_SENT
+    Disp -> Ctrl : handler FRIEND_REQUEST_SENT
+    Ctrl -> View : notifica éxito
+else FRIEND_REQUEST_ERROR
+    Disp -> Ctrl : handler FRIEND_REQUEST_ERROR
+    Ctrl -> View : notifica error
+end
+@enduml
