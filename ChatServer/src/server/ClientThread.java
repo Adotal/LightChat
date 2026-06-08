@@ -1,11 +1,23 @@
 package server;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dao.ConversationDAO;
+import dao.ConversationMemberDAO;
+import dao.FriendshipDAO;
+import dao.GroupDAO;
+import dao.GroupInvitationDAO;
+import dao.MessageDAO;
 import dao.UserDAO;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.List;
+import model.FriendRequest;
+import model.Group;
+import model.GroupInvitation;
 import model.Message;
 import model.TodosMessage;
 import model.User;
@@ -147,7 +159,8 @@ public class ClientThread implements Runnable {
                                 server.broadcastUserStatus();
 
                             } else {
-                                server.writeConsole("[Cliente #" + clientId + "] LOGIN FAILURE: For " + emailReq);
+                                // Registro de intento de autenticación fallido (RQF11/RQNF15)
+                                server.logEvent("AUTH_FAILURE", "Intento de inicio de sesión fallido para " + emailReq);
                                 out.println("{\"type\": \"LOGIN_ERROR\", \"message\": \"Credenciales incorrectas\"}");
                             }
                         } else if (tipo.equals("SIGNUP")) {
@@ -212,7 +225,16 @@ public class ClientThread implements Runnable {
                             // Make is_connected false
                             userDAO.changeIsConnected(emailReq, false);
 
-                            // HERE ALL TODOS MESSAGES WITH EMAIL emailReq SHOULD BE DELETED
+                            // Chats con no-amigos son efímeros: borrar conversaciones TEMP del
+                            // usuario al cerrar sesión (RQNF26/27).
+                            User loggingOut = userDAO.getUserByEmail(emailReq);
+                            if (loggingOut != null) {
+                                ConversationDAO convDAO = new ConversationDAO();
+                                for (int idConv : convDAO.getDirectConversationsByUserAndType(loggingOut.getIdUser(), "TEMP")) {
+                                    convDAO.deleteConversation(idConv);
+                                }
+                            }
+
                             // Return success
                             out.println("{\"type\": \"LOGOUT_SUCCESS\"}");
 
@@ -244,37 +266,81 @@ public class ClientThread implements Runnable {
 
                             if (chatType.equals("TODOS")) {
 
-                                // Deserialize directly into your structural Message object
+                                // Mensaje directo entre dos usuarios.
                                 TodosMessage message = mapper.treeToValue(rootNode.get("message"), TodosMessage.class);
-                                System.out.println("Received message content: " + message.getText());
-
-                                // Obtener el JSON completo listo para ser reenviado
                                 String rawJsonPayload = rootNode.toString();
 
-                                // Extraer los IDs de la conversación
-                                int idDestinatario = message.getUserReceiver().getIdUser();
-                                int idRemitente = message.getUserSender().getIdUser();
-                                
-                                String emailDestinatario = message.getUserReceiver().getEmail();
-                                String emailRemitente = message.getUserSender().getEmail();
+                                int idReceiver = message.getUserReceiver().getIdUser();
+                                int idSender = message.getUserSender().getIdUser();
+                                String emailReceiver = message.getUserReceiver().getEmail();
+                                String text = message.getText();
 
-                                // Buscar el hilo del cliente de destino en el servidor
-                                // 'server' es la referencia a JavaServer que le pasaste al constructor de ClientThread
-                                ClientThread targetClient = server.findClientByUserEmail(emailDestinatario);
-
-                                if (targetClient != null) {
-                                    // El usuario está conectado, le enviamos el mensaje directamente
-                                    targetClient.sendMessage(rawJsonPayload);
-                                    server.writeConsole("[SERVER] Mensaje enviado de User#" + idRemitente + " a User#" + idDestinatario);
+                                // Validar mensaje no vacío (RQNF22/44)
+                                if (text == null || text.trim().isEmpty()) {
+                                    server.writeConsole("[SERVER] Mensaje vacío ignorado de User#" + idSender);
                                 } else {
-                                    // El usuario no está conectado
-                                    server.writeConsole("[SERVER] Mensaje no enviado. User#" + idDestinatario + " está OFFLINE.");
-                                    // Aquí podrías guardar el mensaje en la base de datos como "no leído" si fuera necesario
+                                    ConversationDAO convDAO = new ConversationDAO();
+                                    ConversationMemberDAO memberDAO = new ConversationMemberDAO();
+                                    boolean friends = new FriendshipDAO().areFriends(idSender, idReceiver);
+
+                                    // Resolver/crear conversación
+                                    int idConv = convDAO.getConversationIdByUsers(idSender, idReceiver);
+                                    if (idConv == -1) {
+                                        idConv = convDAO.createDirectConversation(friends ? "FRIEND" : "TEMP");
+                                        memberDAO.addMember(idSender, idConv);
+                                        memberDAO.addMember(idReceiver, idConv);
+                                    } else if (friends && "TEMP".equals(convDAO.getConversationType(idConv))) {
+                                        convDAO.promoteToFriend(idConv);
+                                    }
+
+                                    // Persistir solo si son amigos (RQNF47/51); TEMP es efímero (RQNF27)
+                                    if (friends) {
+                                        new MessageDAO().insertMessage(new Message(0, idConv, idSender, text, null));
+                                        convDAO.updateLastSeen(idConv);
+                                    }
+
+                                    // Reenviar al receptor conectado (RQNF25/50)
+                                    ClientThread targetClient = server.findClientByUserEmail(emailReceiver);
+                                    if (targetClient != null) {
+                                        targetClient.sendMessage(rawJsonPayload);
+                                        server.writeConsole("[SERVER] Mensaje directo de User#" + idSender + " a User#" + idReceiver);
+                                    } else {
+                                        server.writeConsole("[SERVER] User#" + idReceiver + " OFFLINE; mensaje no entregado en vivo.");
+                                    }
                                 }
 
-                            } else if (chatType.equals("AMIGOS")) {
+                            } else if (chatType.equals("GROUP")) {
+                                handleGroupMessage(rootNode, mapper);
                             }
 
+                        } else if (tipo.equals("SEND_FRIEND_REQUEST")) {
+                            handleSendFriendRequest(rootNode, mapper);
+                        } else if (tipo.equals("FETCH_FRIEND_REQUESTS")) {
+                            handleFetchFriendRequests(rootNode, mapper);
+                        } else if (tipo.equals("RESPOND_FRIEND_REQUEST")) {
+                            handleRespondFriendRequest(rootNode, mapper);
+                        } else if (tipo.equals("FETCH_FRIENDS")) {
+                            handleFetchFriends(rootNode, mapper);
+                        } else if (tipo.equals("FETCH_CONVERSATION_HISTORY")) {
+                            handleFetchConversationHistory(rootNode, mapper);
+                        } else if (tipo.equals("CREATE_GROUP")) {
+                            handleCreateGroup(rootNode, mapper);
+                        } else if (tipo.equals("INVITE_TO_GROUP")) {
+                            handleInviteToGroup(rootNode, mapper);
+                        } else if (tipo.equals("FETCH_GROUP_INVITATIONS")) {
+                            handleFetchGroupInvitations(rootNode, mapper);
+                        } else if (tipo.equals("RESPOND_GROUP_INVITATION")) {
+                            handleRespondGroupInvitation(rootNode, mapper);
+                        } else if (tipo.equals("FETCH_GROUPS")) {
+                            handleFetchGroups(rootNode, mapper);
+                        } else if (tipo.equals("FETCH_GROUP_MEMBERS")) {
+                            handleFetchGroupMembers(rootNode, mapper);
+                        } else if (tipo.equals("LEAVE_GROUP")) {
+                            handleLeaveGroup(rootNode, mapper);
+                        } else if (tipo.equals("DELETE_GROUP")) {
+                            handleDeleteGroup(rootNode, mapper);
+                        } else if (tipo.equals("FETCH_GROUP_HISTORY")) {
+                            handleFetchGroupHistory(rootNode, mapper);
                         }
                     }
                 } catch (Exception jsonEx) {
@@ -300,6 +366,608 @@ public class ClientThread implements Runnable {
             // NEW: Alert remaining users that this client left
             server.broadcastUserStatus();
 
+        }
+    }
+
+    // =====================================================================
+    //  Utilidades comunes
+    // =====================================================================
+
+    /** Serializa un User a JSON sin exponer la contraseña. */
+    private ObjectNode userToNode(ObjectMapper mapper, User u) {
+        u.setPassword(null);
+        return (ObjectNode) mapper.valueToTree(u);
+    }
+
+    /** Empuja un JSON crudo a un usuario por id, si está conectado. */
+    private void pushToUser(int idUser, String json) {
+        User u = new UserDAO().getUserById(idUser);
+        if (u != null) {
+            ClientThread t = server.findClientByUserEmail(u.getEmail());
+            if (t != null) {
+                t.sendMessage(json);
+            }
+        }
+    }
+
+    private void sendError(ObjectMapper mapper, String type, String message) {
+        try {
+            ObjectNode n = mapper.createObjectNode();
+            n.put("type", type);
+            n.put("message", message);
+            sendMessage(mapper.writeValueAsString(n));
+        } catch (Exception e) {
+            server.writeConsole("[SERVER] Error enviando error al cliente: " + e.getMessage());
+        }
+    }
+
+    // =====================================================================
+    //  Bloque A — Solicitudes de amistad
+    // =====================================================================
+
+    private void handleSendFriendRequest(JsonNode root, ObjectMapper mapper) {
+        try {
+            int senderId = root.get("senderId").asInt();
+            String receiverEmail = root.get("receiverEmail").asText();
+
+            UserDAO userDAO = new UserDAO();
+            User receiver = userDAO.getUserByEmail(receiverEmail);
+            if (receiver == null) {
+                sendError(mapper, "FRIEND_REQUEST_ERROR", "El usuario no existe.");
+                return;
+            }
+            int receiverId = receiver.getIdUser();
+
+            FriendshipDAO friendDAO = new FriendshipDAO();
+            if (friendDAO.areFriends(senderId, receiverId)) {
+                sendError(mapper, "FRIEND_REQUEST_ERROR", "Este usuario ya es tu amigo.");
+                return;
+            }
+            if (friendDAO.requestAlreadyExists(senderId, receiverId)) {
+                sendError(mapper, "FRIEND_REQUEST_ERROR", "Ya existe una solicitud con este usuario.");
+                return;
+            }
+
+            int idFriendship = friendDAO.sendFriendRequest(senderId, receiverId);
+            if (idFriendship == -1) {
+                sendError(mapper, "FRIEND_REQUEST_ERROR", "No se pudo enviar la solicitud.");
+                return;
+            }
+
+            ObjectNode ok = mapper.createObjectNode();
+            ok.put("type", "FRIEND_REQUEST_SENT");
+            ok.put("message", "Solicitud enviada.");
+            sendMessage(mapper.writeValueAsString(ok));
+
+            // Notificar al receptor conectado (RQNF30)
+            ObjectNode notify = mapper.createObjectNode();
+            notify.put("type", "NEW_FRIEND_REQUEST");
+            pushToUser(receiverId, mapper.writeValueAsString(notify));
+
+            server.logEvent("FRIEND_REQUEST", "User#" + senderId + " envió solicitud a User#" + receiverId);
+        } catch (Exception e) {
+            sendError(mapper, "FRIEND_REQUEST_ERROR", "Error al procesar la solicitud.");
+            server.writeConsole("[SERVER] handleSendFriendRequest: " + e.getMessage());
+        }
+    }
+
+    private void handleFetchFriendRequests(JsonNode root, ObjectMapper mapper) {
+        try {
+            int userId = root.get("userId").asInt();
+            FriendshipDAO friendDAO = new FriendshipDAO();
+
+            ArrayNode received = mapper.createArrayNode();
+            for (FriendRequest fr : friendDAO.getPendingRequests(userId)) {
+                ObjectNode node = mapper.createObjectNode();
+                node.put("id", fr.getId());
+                node.set("sender", userToNode(mapper, fr.getSenderUser()));
+                received.add(node);
+            }
+
+            ArrayNode sent = mapper.createArrayNode();
+            for (FriendRequest fr : friendDAO.getSentRequests(userId)) {
+                ObjectNode node = mapper.createObjectNode();
+                node.put("id", fr.getId());
+                node.put("status", fr.getStatus().name());
+                node.set("target", userToNode(mapper, fr.getTargetUser()));
+                sent.add(node);
+            }
+
+            ObjectNode resp = mapper.createObjectNode();
+            resp.put("type", "FRIEND_REQUESTS_LIST");
+            resp.set("received", received);
+            resp.set("sent", sent);
+            sendMessage(mapper.writeValueAsString(resp));
+        } catch (Exception e) {
+            server.writeConsole("[SERVER] handleFetchFriendRequests: " + e.getMessage());
+        }
+    }
+
+    private void handleRespondFriendRequest(JsonNode root, ObjectMapper mapper) {
+        try {
+            int idFriendship = root.get("idFriendship").asInt();
+            boolean accept = root.get("accept").asBoolean();
+
+            FriendshipDAO friendDAO = new FriendshipDAO();
+            int[] users = friendDAO.getUsersOfRequest(idFriendship);
+
+            if (accept) {
+                friendDAO.acceptRequest(idFriendship);
+                if (users != null) {
+                    // Promover conversación TEMP existente a FRIEND (conserva historial)
+                    ConversationDAO convDAO = new ConversationDAO();
+                    int idConv = convDAO.getConversationIdByUsers(users[0], users[1]);
+                    if (idConv != -1) {
+                        convDAO.promoteToFriend(idConv);
+                    }
+                }
+            } else {
+                friendDAO.denyRequest(idFriendship);
+            }
+
+            ObjectNode ok = mapper.createObjectNode();
+            ok.put("type", "FRIEND_REQUEST_RESPONDED");
+            sendMessage(mapper.writeValueAsString(ok));
+
+            // Avisar a ambos para que refresquen amigos y solicitudes (RQNF34/41)
+            if (users != null) {
+                ObjectNode upd = mapper.createObjectNode();
+                upd.put("type", "FRIENDS_LIST_UPDATED");
+                String s = mapper.writeValueAsString(upd);
+                pushToUser(users[0], s);
+                pushToUser(users[1], s);
+            }
+            server.logEvent("FRIEND_RESPONSE", "Solicitud " + idFriendship + (accept ? " aceptada" : " rechazada"));
+        } catch (Exception e) {
+            server.writeConsole("[SERVER] handleRespondFriendRequest: " + e.getMessage());
+        }
+    }
+
+    private void handleFetchFriends(JsonNode root, ObjectMapper mapper) {
+        try {
+            int userId = root.get("userId").asInt();
+            List<User> friends = new FriendshipDAO().getFriendsByUser(userId);
+            for (User u : friends) {
+                u.setPassword(null);
+            }
+            ObjectNode resp = mapper.createObjectNode();
+            resp.put("type", "FRIENDS_LIST");
+            resp.set("friends", mapper.valueToTree(friends));
+            sendMessage(mapper.writeValueAsString(resp));
+        } catch (Exception e) {
+            server.writeConsole("[SERVER] handleFetchFriends: " + e.getMessage());
+        }
+    }
+
+    // =====================================================================
+    //  Bloque B — Historial de conversación directa
+    // =====================================================================
+
+    private void handleFetchConversationHistory(JsonNode root, ObjectMapper mapper) {
+        try {
+            int userId = root.get("userId").asInt();
+            int otherUserId = root.get("otherUserId").asInt();
+
+            ArrayNode msgs = mapper.createArrayNode();
+            ConversationDAO convDAO = new ConversationDAO();
+            int idConv = convDAO.getConversationIdByUsers(userId, otherUserId);
+            if (idConv != -1) {
+                UserDAO userDAO = new UserDAO();
+                User self = userDAO.getUserById(userId);
+                User other = userDAO.getUserById(otherUserId);
+                for (Message m : new MessageDAO().getMessagesByConversation(idConv)) {
+                    ObjectNode mn = mapper.createObjectNode();
+                    mn.put("idSender", m.getIdSender());
+                    String name = (self != null && m.getIdSender() == userId) ? self.getName()
+                            : (other != null ? other.getName() : "");
+                    mn.put("senderName", name);
+                    mn.put("content", m.getContent());
+                    mn.put("sentDate", m.getSentDate());
+                    msgs.add(mn);
+                }
+            }
+
+            ObjectNode resp = mapper.createObjectNode();
+            resp.put("type", "CONVERSATION_HISTORY");
+            resp.put("otherUserId", otherUserId);
+            resp.set("messages", msgs);
+            sendMessage(mapper.writeValueAsString(resp));
+        } catch (Exception e) {
+            server.writeConsole("[SERVER] handleFetchConversationHistory: " + e.getMessage());
+        }
+    }
+
+    // =====================================================================
+    //  Bloque C — Grupos
+    // =====================================================================
+
+    /** Notifica a todos los miembros actuales de la conversación de un grupo. */
+    private void notifyGroupConversation(int idGroup, ObjectMapper mapper, String type) {
+        try {
+            int idConv = new ConversationDAO().getConversationIdByGroup(idGroup);
+            if (idConv == -1) {
+                return;
+            }
+            ObjectNode n = mapper.createObjectNode();
+            n.put("type", type);
+            n.put("group_id", idGroup);
+            String s = mapper.writeValueAsString(n);
+            for (User m : new ConversationMemberDAO().getMembersByConversation(idConv)) {
+                ClientThread t = server.findClientByUserEmail(m.getEmail());
+                if (t != null) {
+                    t.sendMessage(s);
+                }
+            }
+        } catch (Exception e) {
+            server.writeConsole("[SERVER] notifyGroupConversation: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Regla de permanencia (RQNF71/72/79): un grupo solo sobrevive si puede
+     * alcanzar ≥3 miembros (aceptados incluido el creador + invitaciones aún
+     * pendientes). Si no, se elimina y se notifica a todos los implicados.
+     * Devuelve true si el grupo fue eliminado.
+     */
+    private boolean evaluateGroupPermanence(int idGroup, ObjectMapper mapper) {
+        try {
+            GroupDAO groupDAO = new GroupDAO();
+            if (!groupDAO.exists(idGroup)) {
+                return true;
+            }
+            GroupInvitationDAO invDAO = new GroupInvitationDAO();
+            int approved = groupDAO.countApprovedMembers(idGroup); // incluye al creador
+            int pending = invDAO.countPending(idGroup);
+            if (approved + pending < 3) {
+                // Reunir a quién avisar antes de borrar en cascada
+                List<Integer> toNotify = invDAO.getInvitedUserIds(idGroup);
+                int ownerId = groupDAO.getOwnerId(idGroup);
+                groupDAO.deleteGroup(idGroup);
+
+                ObjectNode n = mapper.createObjectNode();
+                n.put("type", "GROUP_DELETED");
+                n.put("group_id", idGroup);
+                String s = mapper.writeValueAsString(n);
+                for (int uid : toNotify) {
+                    pushToUser(uid, s);
+                }
+                pushToUser(ownerId, s);
+                server.logEvent("GROUP_DELETED", "Grupo " + idGroup + " eliminado por regla de permanencia (<3 miembros).");
+                return true;
+            }
+        } catch (Exception e) {
+            server.writeConsole("[SERVER] evaluateGroupPermanence: " + e.getMessage());
+        }
+        return false;
+    }
+
+    private void handleCreateGroup(JsonNode root, ObjectMapper mapper) {
+        try {
+            int ownerId = root.get("ownerId").asInt();
+            String title = root.get("title").asText();
+            if (title == null || title.trim().isEmpty()) {
+                sendError(mapper, "GROUP_ERROR", "El nombre del grupo no puede estar vacío.");
+                return;
+            }
+
+            GroupDAO groupDAO = new GroupDAO();
+            int idGroup = groupDAO.createGroup(title, ownerId);
+            if (idGroup == -1) {
+                sendError(mapper, "GROUP_ERROR", "No se pudo crear el grupo.");
+                return;
+            }
+            ConversationDAO convDAO = new ConversationDAO();
+            int idConv = convDAO.createGroupConversation(idGroup);
+            new ConversationMemberDAO().addMember(ownerId, idConv);
+
+            // Invitaciones iniciales (RQNF55: solo usuarios registrados)
+            UserDAO userDAO = new UserDAO();
+            GroupInvitationDAO invDAO = new GroupInvitationDAO();
+            if (root.has("invitedEmails") && root.get("invitedEmails").isArray()) {
+                for (JsonNode emailNode : root.get("invitedEmails")) {
+                    User invited = userDAO.getUserByEmail(emailNode.asText());
+                    if (invited != null) {
+                        invDAO.invite(idGroup, invited.getIdUser());
+                        ObjectNode notify = mapper.createObjectNode();
+                        notify.put("type", "GROUP_INVITATION_RECEIVED");
+                        pushToUser(invited.getIdUser(), mapper.writeValueAsString(notify));
+                    }
+                }
+            }
+
+            ObjectNode ok = mapper.createObjectNode();
+            ok.put("type", "GROUP_CREATED");
+            ok.put("group_id", idGroup);
+            ok.put("title", title);
+            sendMessage(mapper.writeValueAsString(ok));
+            server.logEvent("GROUP_CREATED", "User#" + ownerId + " creó grupo " + idGroup + " (" + title + ")");
+        } catch (Exception e) {
+            sendError(mapper, "GROUP_ERROR", "Error al crear el grupo.");
+            server.writeConsole("[SERVER] handleCreateGroup: " + e.getMessage());
+        }
+    }
+
+    private void handleInviteToGroup(JsonNode root, ObjectMapper mapper) {
+        try {
+            int idGroup = root.get("groupId").asInt();
+            String invitedEmail = root.get("invitedEmail").asText();
+
+            User invited = new UserDAO().getUserByEmail(invitedEmail);
+            if (invited == null) {
+                sendError(mapper, "GROUP_ERROR", "El usuario a invitar no existe.");
+                return;
+            }
+            int idInv = new GroupInvitationDAO().invite(idGroup, invited.getIdUser());
+            if (idInv == -1) {
+                sendError(mapper, "GROUP_ERROR", "El usuario ya fue invitado.");
+                return;
+            }
+
+            ObjectNode notify = mapper.createObjectNode();
+            notify.put("type", "GROUP_INVITATION_RECEIVED");
+            pushToUser(invited.getIdUser(), mapper.writeValueAsString(notify));
+
+            ObjectNode ok = mapper.createObjectNode();
+            ok.put("type", "GROUP_INVITE_SENT");
+            sendMessage(mapper.writeValueAsString(ok));
+            server.logEvent("GROUP_INVITE", "Invitación a grupo " + idGroup + " para " + invitedEmail);
+        } catch (Exception e) {
+            sendError(mapper, "GROUP_ERROR", "Error al invitar al grupo.");
+            server.writeConsole("[SERVER] handleInviteToGroup: " + e.getMessage());
+        }
+    }
+
+    private void handleFetchGroupInvitations(JsonNode root, ObjectMapper mapper) {
+        try {
+            int userId = root.get("userId").asInt();
+            ArrayNode arr = mapper.createArrayNode();
+            for (GroupInvitation gi : new GroupInvitationDAO().getPendingInvitationsByUser(userId)) {
+                ObjectNode node = mapper.createObjectNode();
+                node.put("id", gi.getId());
+                ObjectNode g = mapper.createObjectNode();
+                g.put("id", gi.getGroup().getId());
+                g.put("title", gi.getGroup().getTitle());
+                node.set("group", g);
+                node.set("owner", userToNode(mapper, gi.getGroupOwnerUser()));
+                arr.add(node);
+            }
+            ObjectNode resp = mapper.createObjectNode();
+            resp.put("type", "GROUP_INVITATIONS_LIST");
+            resp.set("invitations", arr);
+            sendMessage(mapper.writeValueAsString(resp));
+        } catch (Exception e) {
+            server.writeConsole("[SERVER] handleFetchGroupInvitations: " + e.getMessage());
+        }
+    }
+
+    private void handleRespondGroupInvitation(JsonNode root, ObjectMapper mapper) {
+        try {
+            int idInvitation = root.get("idInvitation").asInt();
+            boolean accept = root.get("accept").asBoolean();
+
+            GroupInvitationDAO invDAO = new GroupInvitationDAO();
+            int[] target = invDAO.getInvitationTarget(idInvitation); // {idGroup, idInvited}
+            if (target == null) {
+                sendError(mapper, "GROUP_ERROR", "La invitación no existe.");
+                return;
+            }
+            int idGroup = target[0];
+            int idInvited = target[1];
+
+            if (accept) {
+                invDAO.accept(idInvitation);
+                int idConv = new ConversationDAO().getConversationIdByGroup(idGroup);
+                if (idConv != -1) {
+                    new ConversationMemberDAO().addMember(idInvited, idConv);
+                }
+            } else {
+                invDAO.deny(idInvitation);
+            }
+
+            ObjectNode ok = mapper.createObjectNode();
+            ok.put("type", "GROUP_INVITATION_RESPONDED");
+            sendMessage(mapper.writeValueAsString(ok));
+
+            // Evaluar permanencia; si no se elimina, refrescar a los miembros
+            boolean deleted = evaluateGroupPermanence(idGroup, mapper);
+            if (!deleted) {
+                notifyGroupConversation(idGroup, mapper, "GROUPS_LIST_UPDATED");
+                notifyGroupConversation(idGroup, mapper, "GROUP_MEMBERS_UPDATED");
+            }
+            server.logEvent("GROUP_INV_RESPONSE", "Invitación " + idInvitation + (accept ? " aceptada" : " rechazada"));
+        } catch (Exception e) {
+            server.writeConsole("[SERVER] handleRespondGroupInvitation: " + e.getMessage());
+        }
+    }
+
+    private void handleFetchGroups(JsonNode root, ObjectMapper mapper) {
+        try {
+            int userId = root.get("userId").asInt();
+            ArrayNode arr = mapper.createArrayNode();
+            for (Group g : new GroupDAO().getGroupsByUser(userId)) {
+                ObjectNode node = mapper.createObjectNode();
+                node.put("id", g.getId());
+                node.put("title", g.getTitle());
+                arr.add(node);
+            }
+            ObjectNode resp = mapper.createObjectNode();
+            resp.put("type", "GROUPS_LIST");
+            resp.set("groups", arr);
+            sendMessage(mapper.writeValueAsString(resp));
+        } catch (Exception e) {
+            server.writeConsole("[SERVER] handleFetchGroups: " + e.getMessage());
+        }
+    }
+
+    private void handleFetchGroupMembers(JsonNode root, ObjectMapper mapper) {
+        try {
+            int idGroup = root.get("groupId").asInt();
+            GroupDAO groupDAO = new GroupDAO();
+            ArrayNode arr = mapper.createArrayNode();
+            for (GroupInvitation gi : new GroupInvitationDAO().getInvitationsByGroup(idGroup)) {
+                ObjectNode node = mapper.createObjectNode();
+                node.put("status", gi.getStatus().name());
+                node.set("invited", userToNode(mapper, gi.getInvitedUser()));
+                arr.add(node);
+            }
+            ObjectNode resp = mapper.createObjectNode();
+            resp.put("type", "GROUP_MEMBERS");
+            resp.put("group_id", idGroup);
+            resp.put("owner_id", groupDAO.getOwnerId(idGroup));
+            resp.set("invitations", arr);
+            sendMessage(mapper.writeValueAsString(resp));
+        } catch (Exception e) {
+            server.writeConsole("[SERVER] handleFetchGroupMembers: " + e.getMessage());
+        }
+    }
+
+    private void handleLeaveGroup(JsonNode root, ObjectMapper mapper) {
+        try {
+            int idGroup = root.get("groupId").asInt();
+            int userId = root.get("userId").asInt();
+
+            GroupDAO groupDAO = new GroupDAO();
+            if (!groupDAO.exists(idGroup)) {
+                return;
+            }
+
+            if (groupDAO.isOwner(idGroup, userId)) {
+                // El creador abandona => se elimina el grupo (RQNF77)
+                GroupInvitationDAO invDAO = new GroupInvitationDAO();
+                List<Integer> toNotify = invDAO.getInvitedUserIds(idGroup);
+                groupDAO.deleteGroup(idGroup);
+                ObjectNode n = mapper.createObjectNode();
+                n.put("type", "GROUP_DELETED");
+                n.put("group_id", idGroup);
+                String s = mapper.writeValueAsString(n);
+                for (int uid : toNotify) {
+                    pushToUser(uid, s);
+                }
+                pushToUser(userId, s);
+                server.logEvent("GROUP_LEFT", "Creador User#" + userId + " abandonó y eliminó grupo " + idGroup);
+                return;
+            }
+
+            // Miembro normal abandona
+            int idConv = new ConversationDAO().getConversationIdByGroup(idGroup);
+            if (idConv != -1) {
+                new ConversationMemberDAO().removeMember(userId, idConv);
+            }
+            new GroupInvitationDAO().removeInvitation(idGroup, userId);
+
+            ObjectNode ok = mapper.createObjectNode();
+            ok.put("type", "GROUP_LEFT_OK");
+            ok.put("group_id", idGroup);
+            sendMessage(mapper.writeValueAsString(ok));
+
+            boolean deleted = evaluateGroupPermanence(idGroup, mapper);
+            if (!deleted) {
+                notifyGroupConversation(idGroup, mapper, "GROUP_MEMBERS_UPDATED");
+            }
+            server.logEvent("GROUP_LEFT", "User#" + userId + " abandonó grupo " + idGroup);
+        } catch (Exception e) {
+            server.writeConsole("[SERVER] handleLeaveGroup: " + e.getMessage());
+        }
+    }
+
+    private void handleDeleteGroup(JsonNode root, ObjectMapper mapper) {
+        try {
+            int idGroup = root.get("groupId").asInt();
+            int userId = root.get("userId").asInt();
+
+            GroupDAO groupDAO = new GroupDAO();
+            if (!groupDAO.isOwner(idGroup, userId)) {
+                sendError(mapper, "GROUP_ERROR", "Solo el creador puede eliminar el grupo.");
+                return;
+            }
+            GroupInvitationDAO invDAO = new GroupInvitationDAO();
+            List<Integer> toNotify = invDAO.getInvitedUserIds(idGroup);
+            groupDAO.deleteGroup(idGroup);
+
+            ObjectNode n = mapper.createObjectNode();
+            n.put("type", "GROUP_DELETED");
+            n.put("group_id", idGroup);
+            String s = mapper.writeValueAsString(n);
+            for (int uid : toNotify) {
+                pushToUser(uid, s);
+            }
+            pushToUser(userId, s);
+            server.logEvent("GROUP_DELETED", "Creador User#" + userId + " eliminó grupo " + idGroup);
+        } catch (Exception e) {
+            sendError(mapper, "GROUP_ERROR", "Error al eliminar el grupo.");
+            server.writeConsole("[SERVER] handleDeleteGroup: " + e.getMessage());
+        }
+    }
+
+    private void handleFetchGroupHistory(JsonNode root, ObjectMapper mapper) {
+        try {
+            int idGroup = root.get("groupId").asInt();
+            ArrayNode msgs = mapper.createArrayNode();
+            int idConv = new ConversationDAO().getConversationIdByGroup(idGroup);
+            if (idConv != -1) {
+                ConversationMemberDAO memberDAO = new ConversationMemberDAO();
+                java.util.Map<Integer, String> names = new java.util.HashMap<>();
+                for (User u : memberDAO.getMembersByConversation(idConv)) {
+                    names.put(u.getIdUser(), u.getName());
+                }
+                for (Message m : new MessageDAO().getMessagesByConversation(idConv)) {
+                    ObjectNode mn = mapper.createObjectNode();
+                    mn.put("idSender", m.getIdSender());
+                    String name = names.get(m.getIdSender());
+                    if (name == null) {
+                        User s = new UserDAO().getUserById(m.getIdSender());
+                        name = (s != null) ? s.getName() : "";
+                    }
+                    mn.put("senderName", name);
+                    mn.put("content", m.getContent());
+                    mn.put("sentDate", m.getSentDate());
+                    msgs.add(mn);
+                }
+            }
+            ObjectNode resp = mapper.createObjectNode();
+            resp.put("type", "GROUP_HISTORY");
+            resp.put("group_id", idGroup);
+            resp.set("messages", msgs);
+            sendMessage(mapper.writeValueAsString(resp));
+        } catch (Exception e) {
+            server.writeConsole("[SERVER] handleFetchGroupHistory: " + e.getMessage());
+        }
+    }
+
+    private void handleGroupMessage(JsonNode root, ObjectMapper mapper) {
+        try {
+            int idGroup = root.get("group_id").asInt();
+            JsonNode senderNode = root.get("sender");
+            int idSender = senderNode.get("idUser").asInt();
+            String text = root.get("text").asText();
+
+            if (text == null || text.trim().isEmpty()) {
+                return; // validar no vacío (RQNF83)
+            }
+
+            ConversationDAO convDAO = new ConversationDAO();
+            int idConv = convDAO.getConversationIdByGroup(idGroup);
+            if (idConv == -1) {
+                return;
+            }
+
+            // Persistir (RQNF85/89) y actualizar recencia
+            new MessageDAO().insertMessage(new Message(0, idConv, idSender, text, null));
+            convDAO.updateLastSeen(idConv);
+
+            // Distribuir a los miembros activos excepto el remitente (RQNF84/88)
+            String raw = root.toString();
+            for (User m : new ConversationMemberDAO().getMembersByConversation(idConv)) {
+                if (m.getIdUser() == idSender) {
+                    continue;
+                }
+                ClientThread t = server.findClientByUserEmail(m.getEmail());
+                if (t != null) {
+                    t.sendMessage(raw);
+                }
+            }
+        } catch (Exception e) {
+            server.writeConsole("[SERVER] handleGroupMessage: " + e.getMessage());
         }
     }
 

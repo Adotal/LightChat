@@ -6,6 +6,8 @@ package dao;
  */
 import database.DatabaseConnection;
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ConversationDAO extends DatabaseConnection {
 
@@ -13,186 +15,177 @@ public class ConversationDAO extends DatabaseConnection {
         super();
     }
 
-    // Creacion
-    // Crear conversación directa TEMP temporal o FRIEND amigo e inserta el registro en la tabla conversaciones, y devuelve el isd que se genero de la conversacion
-    public int createDirectConversation(String tipo) {
-        // id_grupo se deja NULL porque no es conversación de grupo
-        String sql = "INSERT INTO Conversaciones (id_grupo, tipo, ultima_vez) VALUES (NULL, ?, NOW())";
+    // Creacion ----------------------------------------------------------
+    // Crea conversación directa TEMP o FRIEND, devuelve el id generado.
+    public int createDirectConversation(String type) {
+        String sql = "INSERT INTO conversations (id_group, type, last_seen) VALUES (NULL, ?, NOW())";
         try {
-
             PreparedStatement ps = getCon().prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-
-            ps.setString(1, tipo);
+            ps.setString(1, type);
             ps.executeUpdate();
-
             ResultSet keys = ps.getGeneratedKeys();
             if (keys.next()) {
                 return keys.getInt(1);
             }
-
         } catch (SQLException e) {
             System.out.println("[ConversationDAO] Error al crear conversación directa: " + e.getMessage());
         }
         return -1;
     }
 
-    // Crear conversacion de un grupo tipo GROUP y vincula el id del grupo para que la conversacion este ligada a ese grupo 
-    public int createGroupConversation(int idGrupo) {
-        String sql = "INSERT INTO Conversaciones (id_grupo, tipo, ultima_vez) VALUES (?, 'GROUP', NOW())";
+    // Crea conversación de grupo (tipo GROUP) ligada a un id_group.
+    public int createGroupConversation(int idGroup) {
+        String sql = "INSERT INTO conversations (id_group, type, last_seen) VALUES (?, 'GROUP', NOW())";
         try {
-
             PreparedStatement ps = getCon().prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-
-            ps.setInt(1, idGrupo);
+            ps.setInt(1, idGroup);
             ps.executeUpdate();
-
             ResultSet keys = ps.getGeneratedKeys();
             if (keys.next()) {
                 return keys.getInt(1);
             }
-
         } catch (SQLException e) {
             System.out.println("[ConversationDAO] Error al crear conversación de grupo: " + e.getMessage());
         }
         return -1;
     }
 
-    // Lectura
-    // Obtiene la id de conversacion por los uasuarios, busca una conversacion directa entre dos usuarios, y hace un JOIN con Miembros_conversacion agrupando por id_conversacion
-    // y filtra los que tienen solo esos participantes esto para saber si ya existe un chat entre usuario A y B  antes de hacer uno nuevo, si no hay regresa -1
+    // Lectura -----------------------------------------------------------
+    // Busca la conversación directa (no GROUP) entre dos usuarios; -1 si no existe.
     public int getConversationIdByUsers(int idUser1, int idUser2) {
-        // Seleccionamos conversaciones donde ambos usuarios son miembros
-        // y el tipo NO es GROUP (para no mezclar con grupos)
         String sql
-                = "SELECT c.id_conversacion "
-                + "FROM Conversaciones c "
-                + "JOIN Miembros_Conversacion mc ON c.id_conversacion = mc.id_conversacion "
-                + "WHERE mc.id_usuario IN (?, ?) "
-                + "AND c.tipo != 'GROUP' "
-                + "GROUP BY c.id_conversacion "
-                + "HAVING COUNT(DISTINCT mc.id_usuario) = 2";
+                = "SELECT c.id_conversation "
+                + "FROM conversations c "
+                + "JOIN conversation_members mc ON c.id_conversation = mc.id_conversation "
+                + "WHERE mc.id_user IN (?, ?) "
+                + "AND c.type != 'GROUP' "
+                + "GROUP BY c.id_conversation "
+                + "HAVING COUNT(DISTINCT mc.id_user) = 2";
 
         try {
-
             PreparedStatement ps = getCon().prepareStatement(sql);
-
             ps.setInt(1, idUser1);
             ps.setInt(2, idUser2);
             ResultSet rs = ps.executeQuery();
-
             if (rs.next()) {
-                return rs.getInt("id_conversacion");
+                return rs.getInt("id_conversation");
             }
-
         } catch (SQLException e) {
             System.out.println("[ConversationDAO] Error al buscar conversación por usuarios: " + e.getMessage());
         }
         return -1;
     }
 
-    // Obtiene el tipo de conversacion por id, retorna TEMP, FRIEND o GROUP
-    public String getConversationType(int idConversacion) {
-        String sql = "SELECT tipo FROM Conversaciones WHERE id_conversacion = ?";
+    // Devuelve el tipo (TEMP, FRIEND, GROUP) de una conversación.
+    public String getConversationType(int idConversation) {
+        String sql = "SELECT type FROM conversations WHERE id_conversation = ?";
         try {
-
             PreparedStatement ps = getCon().prepareStatement(sql);
-
-            ps.setInt(1, idConversacion);
+            ps.setInt(1, idConversation);
             ResultSet rs = ps.executeQuery();
-
             if (rs.next()) {
-                return rs.getString("tipo");
+                return rs.getString("type");
             }
-
         } catch (SQLException e) {
             System.out.println("[ConversationDAO] Error al obtener tipo de conversación: " + e.getMessage());
         }
         return null;
     }
 
-    // Obtiene el id de la conversación asociada a un grupo si la conversacioon es de tipo grupo
-    public int getConversationIdByGroup(int idGrupo) {
-        String sql = "SELECT id_conversacion FROM Conversaciones WHERE id_grupo = ? AND tipo = 'GROUP'";
+    // Devuelve el id de la conversación de un grupo; -1 si no existe.
+    public int getConversationIdByGroup(int idGroup) {
+        String sql = "SELECT id_conversation FROM conversations WHERE id_group = ? AND type = 'GROUP'";
         try {
-
             PreparedStatement ps = getCon().prepareStatement(sql);
-
-            ps.setInt(1, idGrupo);
+            ps.setInt(1, idGroup);
             ResultSet rs = ps.executeQuery();
-
             if (rs.next()) {
-                return rs.getInt("id_conversacion");
+                return rs.getInt("id_conversation");
             }
-
         } catch (SQLException e) {
             System.out.println("[ConversationDAO] Error al buscar conversación de grupo: " + e.getMessage());
         }
         return -1;
     }
 
-    // Actualiza el momento de ultima vez al momento actual y se llama cada que se manda un nuevo mensaje en la concversacion y asi se ordenan los chats de recientes a antiguos
-    public void updateLastSeen(int idConversacion) {
-        String sql = "UPDATE Conversaciones SET ultima_vez = NOW() WHERE id_conversacion = ?";
+    /*
+        Devuelve los ids de conversaciones directas (TEMP/FRIEND) de las que
+        un usuario es miembro, filtradas por tipo. Útil para borrar las TEMP
+        del usuario al cerrar sesión (chats efímeros con no-amigos).
+     */
+    public List<Integer> getDirectConversationsByUserAndType(int idUser, String type) {
+        List<Integer> ids = new ArrayList<>();
+        String sql
+                = "SELECT c.id_conversation "
+                + "FROM conversations c "
+                + "JOIN conversation_members mc ON c.id_conversation = mc.id_conversation "
+                + "WHERE mc.id_user = ? AND c.type = ?";
         try {
-
             PreparedStatement ps = getCon().prepareStatement(sql);
-
-            ps.setInt(1, idConversacion);
-            ps.executeUpdate();
-
+            ps.setInt(1, idUser);
+            ps.setString(2, type);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                ids.add(rs.getInt("id_conversation"));
+            }
         } catch (SQLException e) {
-            System.out.println("[ConversationDAO] Error al actualizar ultima_vez: " + e.getMessage());
+            System.out.println("[ConversationDAO] Error al obtener conversaciones por tipo: " + e.getMessage());
+        }
+        return ids;
+    }
+
+    // Actualiza last_seen al momento actual (ordena chats por recencia).
+    public void updateLastSeen(int idConversation) {
+        String sql = "UPDATE conversations SET last_seen = NOW() WHERE id_conversation = ?";
+        try {
+            PreparedStatement ps = getCon().prepareStatement(sql);
+            ps.setInt(1, idConversation);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println("[ConversationDAO] Error al actualizar last_seen: " + e.getMessage());
         }
     }
 
-    // Convertir una conversacion temporal TEMP en conversacion de tipo amigos FRIEND cuando dos usuarios se hacen amigos, solo hace UPDATE para no perder el historial de la conversacion al aceptar una solicitud
-    public void promoteToFriend(int idConversacion) {
-        String sql = "UPDATE Conversaciones SET tipo = 'FRIEND' WHERE id_conversacion = ? AND tipo = 'TEMP'";
+    // Convierte una conversación TEMP en FRIEND (al aceptarse la amistad),
+    // conservando el historial.
+    public void promoteToFriend(int idConversation) {
+        String sql = "UPDATE conversations SET type = 'FRIEND' WHERE id_conversation = ? AND type = 'TEMP'";
         try {
-
             PreparedStatement ps = getCon().prepareStatement(sql);
-
-            ps.setInt(1, idConversacion);
+            ps.setInt(1, idConversation);
             ps.executeUpdate();
-
         } catch (SQLException e) {
             System.out.println("[ConversationDAO] Error al promover conversación a FRIEND: " + e.getMessage());
         }
     }
 
-    /* Eliminar
-        Elimina toda la conversacion de forma ordenada
-     */
-    public void deleteConversation(int idConversacion) {
-        // Paso 1: borrar todos los mensajes de esa conversación
-        String deleteMsgs = "DELETE FROM Mensaje WHERE id_conversacion = ?";
-        // Paso 2: borrar todos los miembros de esa conversación  
-        String deleteMembers = "DELETE FROM Miembros_Conversacion WHERE id_conversacion = ?";
-        // Paso 3: recién ahora borrar la conversación
-        String deleteConv = "DELETE FROM Conversaciones WHERE id_conversacion = ?";
+    // Eliminar ----------------------------------------------------------
+    // Elimina mensajes, miembros y la conversación de forma atómica.
+    public void deleteConversation(int idConversation) {
+        String deleteMsgs = "DELETE FROM messages WHERE id_conversation = ?";
+        String deleteMembers = "DELETE FROM conversation_members WHERE id_conversation = ?";
+        String deleteConv = "DELETE FROM conversations WHERE id_conversation = ?";
 
         try {
-            getCon().setAutoCommit(false); // Todo o nada — si algo falla, se revierte todo
-
+            getCon().setAutoCommit(false);
             try (
-                    PreparedStatement s1 = getCon().prepareStatement(deleteMsgs); PreparedStatement s2 = getCon().prepareStatement(deleteMembers); PreparedStatement s3 = getCon().prepareStatement(deleteConv)) {
-                s1.setInt(1, idConversacion);
+                    PreparedStatement s1 = getCon().prepareStatement(deleteMsgs);
+                    PreparedStatement s2 = getCon().prepareStatement(deleteMembers);
+                    PreparedStatement s3 = getCon().prepareStatement(deleteConv)) {
+                s1.setInt(1, idConversation);
                 s1.executeUpdate();
-
-                s2.setInt(1, idConversacion);
+                s2.setInt(1, idConversation);
                 s2.executeUpdate();
-
-                s3.setInt(1, idConversacion);
+                s3.setInt(1, idConversation);
                 s3.executeUpdate();
-
-                getCon().commit(); // Confirmar los tres pasos juntos
-                System.out.println("[ConversationDAO] Conversación " + idConversacion + " eliminada completamente.");
-
+                getCon().commit();
+                System.out.println("[ConversationDAO] Conversación " + idConversation + " eliminada completamente.");
             } catch (SQLException e) {
-                getCon().rollback(); // Si algo falla, deshacer todo
+                getCon().rollback();
                 System.out.println("[ConversationDAO] Error al eliminar conversación, rollback aplicado: " + e.getMessage());
+            } finally {
+                getCon().setAutoCommit(true);
             }
-
         } catch (SQLException e) {
             System.out.println("[ConversationDAO] Error de conexión: " + e.getMessage());
         }

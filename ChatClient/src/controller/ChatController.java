@@ -34,6 +34,9 @@ public class ChatController {
         void onMessageReceived(String message);
 
         void onDeleteChat();
+
+        /** Carga el historial persistido de la conversación, en orden cronológico. */
+        void onHistoryLoaded(java.util.List<Message> messages);
     }
 
     private final View view;
@@ -85,10 +88,56 @@ public class ChatController {
         dispatcher.register("DELETE_CHAT", root -> {
             view.onDeleteChat();
         });
+
+        // Historial persistido de la conversación (RQF26/RQNF48/49)
+        dispatcher.register("CONVERSATION_HISTORY", root -> {
+            try {
+                if (!root.has("otherUserId")
+                        || root.get("otherUserId").asInt() != receiverUser.getIdUser()) {
+                    return; // historial de otra conversación
+                }
+                java.util.List<Message> history = new ArrayList<>();
+                if (root.has("messages")) {
+                    for (com.fasterxml.jackson.databind.JsonNode mn : root.get("messages")) {
+                        int idSender = mn.get("idSender").asInt();
+                        String content = mn.get("content").asText();
+                        String sentDate = mn.has("sentDate") ? mn.get("sentDate").asText() : "";
+                        boolean mine = idSender == currentUser.getIdUser();
+                        User sender = mine ? currentUser : receiverUser;
+                        User receiver = mine ? receiverUser : currentUser;
+                        Message m = new Message(sender, receiver, content, sentDate);
+                        chat.getMessages().add(m);
+                        history.add(m);
+                    }
+                }
+                view.onHistoryLoaded(history);
+            } catch (Exception e) {
+                System.err.println("[ChatController] Error procesando historial: " + e.getMessage());
+            }
+        });
     }
 
     public void connect() {
         ClientSocket.getInstance().tryConnect();
+    }
+
+    /** Pide al servidor el historial persistido con este usuario (si son amigos). */
+    public void requestHistory() {
+        try {
+            ObjectNode req = Json.mapper().createObjectNode();
+            req.put("type", "FETCH_CONVERSATION_HISTORY");
+            req.put("userId", currentUser.getIdUser());
+            req.put("otherUserId", receiverUser.getIdUser());
+            ClientSocket.getInstance().sendText(Json.mapper().writeValueAsString(req));
+        } catch (Exception ex) {
+            System.err.println("[ChatController] Error al pedir historial: " + ex.getMessage());
+        }
+    }
+
+    /** True si el mensaje fue enviado por el usuario actual. */
+    public boolean isMine(Message m) {
+        return m.getUserSender() != null
+                && m.getUserSender().getIdUser() == currentUser.getIdUser();
     }
 
     public User getReceiverUser() {

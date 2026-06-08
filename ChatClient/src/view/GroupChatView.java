@@ -1,17 +1,17 @@
 package view;
 
+import controller.GroupsController;
 import model.Group;
-import model.UserGroup;
-
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.List;
 
 
-public class GroupChatView extends JFrame {
+public class GroupChatView extends JFrame implements GroupsController.View {
 
     // ESTRUCTURAS DE CONTROL DE POSICIONAMIENTO DINÁMICO PARA LAS BURBUJAS DE TEXTO
     private GroupLayout layoutChat;
@@ -27,7 +27,8 @@ public class GroupChatView extends JFrame {
 
     // INSTANCIAS DE DATOS Y SEGUIMIENTO DE FLUJO DE MENSAJES
     private Group grupoActual;
-    private int contadorMensajes = 0; 
+    private int contadorMensajes = 0;
+    private GroupsController controller;
 
     // MATRIZ DE COLORES ASIGNADOS PARA DISTINGUIR VISUALMENTE A LOS USUARIOS
     private final Color[] PALETA_COLORES = {
@@ -56,8 +57,22 @@ public class GroupChatView extends JFrame {
         txtHeader.setBackground(new Color(11, 22, 64)); 
         txtHeader.setForeground(Color.WHITE); 
         txtHeader.setFont(new java.awt.Font("SansSerif", java.awt.Font.BOLD, 28));
-        txtHeader.setPreferredSize(new Dimension(450, 60)); 
-        getContentPane().add(txtHeader, BorderLayout.NORTH);
+        txtHeader.setPreferredSize(new Dimension(450, 60));
+
+        // Botón de opciones del grupo (integrantes / abandonar / eliminar).
+        JButton btnOpciones = new JButton("•••");
+        btnOpciones.setBackground(new Color(11, 22, 64));
+        btnOpciones.setForeground(Color.WHITE);
+        btnOpciones.setFocusPainted(false);
+        btnOpciones.setBorder(null);
+        btnOpciones.setFont(new java.awt.Font("SansSerif", java.awt.Font.BOLD, 20));
+        btnOpciones.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnOpciones.addActionListener(e -> mostrarMenuOpciones(btnOpciones));
+
+        JPanel panelHeaderTop = new JPanel(new BorderLayout());
+        panelHeaderTop.add(txtHeader, BorderLayout.CENTER);
+        panelHeaderTop.add(btnOpciones, BorderLayout.EAST);
+        getContentPane().add(panelHeaderTop, BorderLayout.NORTH);
 
         // CREACIÓN DEL PANEL DE FONDO QUE ALBERGA Y RENDERIZA LAS FILAS DE MENSAJES
         panelChat = new JPanel();
@@ -118,6 +133,19 @@ public class GroupChatView extends JFrame {
 
         // ESTABLECE LA POSICIÓN INICIAL DE LA VENTANA CENTRADA EN EL MONITOR
         setLocationRelativeTo(null);
+
+        // Conecta la lógica real del grupo y pide el historial persistido.
+        controller = new GroupsController(this, grupoActual);
+        controller.connect();
+        controller.requestHistory();
+
+        // Botón volver a la lista al cerrar la ventana.
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                new UsersListView().setVisible(true);
+            }
+        });
     }
 
     // CONSTRUYE LAS COORDENADAS E INTERFACES DE ALINEACIÓN PARA EL GESTOR DE DISEÑO
@@ -129,38 +157,120 @@ public class GroupChatView extends JFrame {
         grupoVerticalPrincipal = layoutChat.createSequentialGroup();
     }
 
-    // EXTRAE EL TEXTO, ASIGNA RESPONSABLE SIMULADO Y GESTIONA EL COLOR DE LA BURBUJA
+    // ENVÍA EL MENSAJE AL SERVIDOR Y LO RENDERIZA LOCALMENTE
     private void procesarNuevoMensaje() {
-        String texto = txtInput.getText().trim(); 
-        
-        // RESTRICCIÓN DE ENVÍO PARA EVITAR MENSAJES VACÍOS O COMPORTAMIENTOS HUÉRFANOS
-        if (!texto.isEmpty() && grupoActual.getUsers() != null && !grupoActual.getUsers().isEmpty()) {
-            // ITERA DE MANERA CÍCLICA ENTRE LOS MIEMBROS DEL GRUPO PARA SIMULAR LA RESPUESTA
-            int indiceUsuario = contadorMensajes % grupoActual.getUsers().size();
-            UserGroup usuarioAsociado = grupoActual.getUsers().get(indiceUsuario);
-
-            // CALCULA EL COLOR ADECUADO DE LA PALETA MEDIANTE EL IDENTIFICADOR DEL USUARIO
-            int indiceColor = Math.abs(usuarioAsociado.getIdUser()) % PALETA_COLORES.length;
-            Color colorBurbuja = PALETA_COLORES[indiceColor];
-
-            // CREA E INYECTA LOS NUEVOS COMPONENTES VISUALES EN LA COLA GRÁFICA
-            inyectarComponentesMensaje(usuarioAsociado.getName(), texto, colorBurbuja);
-            
-            // RECONSTRUYE LAS RELACIONES DEL DISEÑO INTERNO CON LA NUEVA BURBUJA
-            CerrarYConstruirLayoutInterno();
-            txtInput.setText("");
-            contadorMensajes++;
-            
-            // FUERZA EL REDIBUJADO INTERNO DE LA PANTALLA PARA ACTUALIZAR LA VISTA
-            panelChat.revalidate();
-            panelChat.repaint();
-
-            // DESPLAZA AUTOMÁTICAMENTE EL SCROLLBAR HACIA LA PARTE INFERIOR DEL CHAT
-            SwingUtilities.invokeLater(() -> {
-                JScrollBar vertical = scrollPane.getVerticalScrollBar();
-                vertical.setValue(vertical.getMaximum());
-            });
+        String texto = txtInput.getText().trim();
+        if (texto.isEmpty()) {
+            return; // validar no vacío
         }
+        controller.sendGroupMessage(texto);
+        renderizarMensaje("Tú", texto, PALETA_COLORES[0]);
+        txtInput.setText("");
+    }
+
+    // Inyecta una burbuja, reconstruye el layout y baja el scroll.
+    private void renderizarMensaje(String autor, String texto, Color color) {
+        inyectarComponentesMensaje(autor, texto, color);
+        CerrarYConstruirLayoutInterno();
+        contadorMensajes++;
+        panelChat.revalidate();
+        panelChat.repaint();
+        SwingUtilities.invokeLater(() -> {
+            JScrollBar vertical = scrollPane.getVerticalScrollBar();
+            vertical.setValue(vertical.getMaximum());
+        });
+    }
+
+    private Color colorPara(String autor) {
+        return PALETA_COLORES[Math.abs(autor.hashCode()) % PALETA_COLORES.length];
+    }
+
+    // ===== Callbacks de GroupsController.View =====
+
+    @Override
+    public void onGroupMessage(GroupsController.GMsg msg) {
+        SwingUtilities.invokeLater(() ->
+                renderizarMensaje(msg.mine ? "Tú" : msg.senderName, msg.text,
+                        msg.mine ? PALETA_COLORES[0] : colorPara(msg.senderName)));
+    }
+
+    @Override
+    public void onGroupHistory(List<GroupsController.GMsg> messages) {
+        SwingUtilities.invokeLater(() -> {
+            for (GroupsController.GMsg m : messages) {
+                renderizarMensaje(m.mine ? "Tú" : m.senderName, m.text,
+                        m.mine ? PALETA_COLORES[0] : colorPara(m.senderName));
+            }
+        });
+    }
+
+    @Override
+    public void onGroupDeleted() {
+        SwingUtilities.invokeLater(() -> {
+            JOptionPane.showMessageDialog(this, "El grupo ha sido eliminado.");
+            new UsersListView().setVisible(true);
+            dispose();
+        });
+    }
+
+    @Override
+    public void onGroupLeft() {
+        SwingUtilities.invokeLater(() -> {
+            JOptionPane.showMessageDialog(this, "Has abandonado el grupo.");
+            new UsersListView().setVisible(true);
+            dispose();
+        });
+    }
+
+    @Override
+    public void onGroupMembers(List<GroupsController.GMember> members, boolean isOwner) {
+        SwingUtilities.invokeLater(() -> {
+            StringBuilder sb = new StringBuilder("Integrantes de " + grupoActual.getTitle() + ":\n\n");
+            sb.append("• Creador (tú)").append(isOwner ? "\n" : "");
+            for (GroupsController.GMember m : members) {
+                sb.append("• ").append(m.name).append(" - ").append(traducirEstado(m.status)).append("\n");
+            }
+            JOptionPane.showMessageDialog(this, sb.toString(), "Integrantes", JOptionPane.INFORMATION_MESSAGE);
+        });
+    }
+
+    private String traducirEstado(String status) {
+        switch (status) {
+            case "APPROVED": return "Aceptado";
+            case "DENIED":   return "Rechazado";
+            default:          return "Pendiente";
+        }
+    }
+
+    /** Menú de opciones del grupo: ver integrantes, abandonar o eliminar. */
+    private void mostrarMenuOpciones(Component invoker) {
+        JPopupMenu menu = new JPopupMenu();
+
+        JMenuItem verIntegrantes = new JMenuItem("Ver integrantes");
+        verIntegrantes.addActionListener(e -> controller.fetchMembers());
+        menu.add(verIntegrantes);
+
+        JMenuItem abandonar = new JMenuItem("Abandonar grupo");
+        abandonar.addActionListener(e -> {
+            int r = JOptionPane.showConfirmDialog(this, "¿Abandonar este grupo?",
+                    "Abandonar", JOptionPane.YES_NO_OPTION);
+            if (r == JOptionPane.YES_OPTION) {
+                controller.leaveGroup();
+            }
+        });
+        menu.add(abandonar);
+
+        JMenuItem eliminar = new JMenuItem("Eliminar grupo (creador)");
+        eliminar.addActionListener(e -> {
+            int r = JOptionPane.showConfirmDialog(this, "¿Eliminar el grupo? Esta acción es permanente.",
+                    "Eliminar", JOptionPane.YES_NO_OPTION);
+            if (r == JOptionPane.YES_OPTION) {
+                controller.deleteGroup();
+            }
+        });
+        menu.add(eliminar);
+
+        menu.show(invoker, 0, invoker.getHeight());
     }
 
     // CREA Y ACOMODA DE FORMA SECUENCIAL LA BURBUJA DE TEXTO Y LA ETIQUETA DEL USUARIO

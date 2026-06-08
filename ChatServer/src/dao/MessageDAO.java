@@ -33,7 +33,7 @@ public class MessageDAO extends DatabaseConnection {
     // Check messages in a conversation
     public List<Message> getMessagesByConversation(int idConversation) {
         List<Message> messages = new ArrayList<>();
-        String sql = "SELECT * FROM messages WHERE id_conversation = ?";
+        String sql = "SELECT * FROM messages WHERE id_conversation = ? ORDER BY sent_date ASC, id_message ASC";
         try {
 
             PreparedStatement ps = getCon().prepareStatement(sql);

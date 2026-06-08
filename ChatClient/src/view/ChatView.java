@@ -43,6 +43,7 @@ public class ChatView extends JFrame implements ChatController.View {
         configurarEstilos();
         actualizarEstadoUsuario();
         controller.connect();
+        controller.requestHistory();
     }
 
     private void initComponents() {
@@ -372,5 +373,14 @@ public class ChatView extends JFrame implements ChatController.View {
     @Override
     public void onDeleteChat() {
 
+    }
+
+    @Override
+    public void onHistoryLoaded(java.util.List<Message> messages) {
+        SwingUtilities.invokeLater(() -> {
+            for (Message m : messages) {
+                agregarBurbujaMensaje(m, controller.isMine(m));
+            }
+        });
     }
 }

@@ -13,23 +13,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * DAO para la tabla amistades.
+ * DAO para la tabla friendships.
  *
- * La tabla "amistades" maneja dos cosas distintas en una sola: 1. Las
- * solicitudes de amistad pendientes (estado = PENDING) 2. Las amistades ya
- * confirmadas (estado = APPROVED) 3. Las solicitudes rechazadas (estado =
- * DENIED)
+ * La tabla "friendships" maneja tres cosas en una sola:
+ *  1. Solicitudes pendientes  (status = PENDING)
+ *  2. Amistades confirmadas   (status = APPROVED)
+ *  3. Solicitudes rechazadas  (status = DENIED)
  *
- * Estructura de la tabla: ID_amistad (PK) ID_remitente (FK → Usuarios) — quien
- * envía la solicitud ID_destinatario (FK → Usuarios) — quien la recibe fecha
- * (timestamp) — fecha de la solicitud estado (enum: PENDING, APPROVED, DENIED)
- *
- * Responsabilidades de esta clase: 1. Enviar solicitud de amistad
- * (sendFriendRequest) 2. Obtener amigos confirmados (getFriendsByUser) 3.
- * Obtener solicitudes pendientes (getPendingRequests) 4. Verificar si dos
- * usuarios son amigos (areFriends) 5. Verificar si ya existe una solicitud
- * (requestAlreadyExists) 6. Aceptar solicitud (acceptRequest) 7. Denegar
- * solicitud (denyRequest) 8. Eliminar amistad (deleteFriendship)
+ * Estructura (ver schema.sql):
+ *  id_friendship (PK), id_sender (FK users), id_receiver (FK users),
+ *  created_at (timestamp), status ENUM(PENDING, APPROVED, DENIED)
  */
 public class FriendshipDAO extends DatabaseConnection {
 
@@ -37,88 +30,84 @@ public class FriendshipDAO extends DatabaseConnection {
         super();
     }
 
-    // Crear
-    /* 
-        Inserta una solicitud de amistad en estado PENDING pendiente
-        Antes de insertar verifica: que no sean amigas ya (areFriends) y que no exista ya una solicitud de amistad pendiente entre ellos (requestAlreadyExist)
-        esto para evitar duplicados
+    // Crear --------------------------------------------------------------
+    /*
+        Inserta una solicitud en estado PENDING.
+        Antes valida que no sean ya amigos (areFriends) y que no exista
+        una solicitud previa entre ellos (requestAlreadyExists).
+        Devuelve el id de la solicitud creada, o -1 si no se creó.
      */
-    public void sendFriendRequest(int idRemitente, int idDestinatario) {
-        if (areFriends(idRemitente, idDestinatario)) {
-            System.out.println("[FriendshipDAO] Los usuarios " + idRemitente
-                    + " y " + idDestinatario + " ya son amigos.");
-            return;
+    public int sendFriendRequest(int idSender, int idReceiver) {
+        if (areFriends(idSender, idReceiver)) {
+            System.out.println("[FriendshipDAO] Los usuarios " + idSender
+                    + " y " + idReceiver + " ya son amigos.");
+            return -1;
         }
-        if (requestAlreadyExists(idRemitente, idDestinatario)) {
-            System.out.println("[FriendshipDAO] Ya existe una solicitud pendiente entre "
-                    + idRemitente + " y " + idDestinatario + ".");
-            return;
+        if (requestAlreadyExists(idSender, idReceiver)) {
+            System.out.println("[FriendshipDAO] Ya existe una solicitud entre "
+                    + idSender + " y " + idReceiver + ".");
+            return -1;
         }
 
-        String sql = "INSERT INTO amistades (ID_remitente, ID_destinatario, fecha, estado) "
-                + "VALUES (?, ?, NOW(), 'PENDING')";
+        String sql = "INSERT INTO friendships (id_sender, id_receiver, status) "
+                + "VALUES (?, ?, 'PENDING')";
         try {
-
-            PreparedStatement ps = getCon().prepareStatement(sql);
-
-            ps.setInt(1, idRemitente);
-            ps.setInt(2, idDestinatario);
+            PreparedStatement ps = getCon().prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+            ps.setInt(1, idSender);
+            ps.setInt(2, idReceiver);
             ps.executeUpdate();
-            System.out.println("[FriendshipDAO] Solicitud enviada de " + idRemitente
-                    + " a " + idDestinatario);
-
+            ResultSet keys = ps.getGeneratedKeys();
+            if (keys.next()) {
+                int id = keys.getInt(1);
+                System.out.println("[FriendshipDAO] Solicitud " + id + " enviada de "
+                        + idSender + " a " + idReceiver);
+                return id;
+            }
         } catch (SQLException e) {
             System.out.println("[FriendshipDAO] Error al enviar solicitud: " + e.getMessage());
         }
+        return -1;
     }
 
-    // Lectura
-    /* 
-        Devuelve la lista de amigos confirmados (estado APPROVED) de un usuario
-        Las solicitudes son bidireccionales, un usuario puede ser remitente o desrtinatario, por eso en el WHERE hay un OR. 
-        Hace JOIN con Usuarios para devolver objetos USER del amigo del usuario y agragarlo a amigos
-        Sirve para cargar el panel de amigos conectados y desconectados al iniciar sesion
+    // Lectura ------------------------------------------------------------
+    /*
+        Devuelve la lista de amigos confirmados (APPROVED) de un usuario.
+        Bidireccional: el usuario puede ser remitente o destinatario.
      */
-    public List<User> getFriendsByUser(int idUsuario) {
+    public List<User> getFriendsByUser(int idUser) {
         List<User> friends = new ArrayList<>();
 
-        // Si el usuario es remitente, el amigo es el destinatario y viceversa
         String sql
                 = "SELECT "
-                + "  CASE WHEN a.ID_remitente = ? THEN u2.id_usuario ELSE u1.id_usuario END AS id_usuario, "
-                + "  CASE WHEN a.ID_remitente = ? THEN u2.Nombre     ELSE u1.Nombre     END AS Nombre, "
-                + "  CASE WHEN a.ID_remitente = ? THEN u2.Email      ELSE u1.Email      END AS Email, "
-                + "  CASE WHEN a.ID_remitente = ? THEN u2.Contraseña ELSE u1.Contraseña END AS Contraseña, "
-                + "  CASE WHEN a.ID_remitente = ? THEN u2.Estado     ELSE u1.Estado     END AS Estado, "
-                + "  CASE WHEN a.ID_remitente = ? THEN u2.Ultimo_acceso ELSE u1.Ultimo_acceso END AS Ultimo_acceso "
-                + "FROM amistades a "
-                + "JOIN Usuarios u1 ON a.ID_remitente    = u1.id_usuario "
-                + "JOIN Usuarios u2 ON a.ID_destinatario = u2.id_usuario "
-                + "WHERE (a.ID_remitente = ? OR a.ID_destinatario = ?) "
-                + "  AND a.estado = 'APPROVED'";
+                + "  CASE WHEN f.id_sender = ? THEN u2.id_user      ELSE u1.id_user      END AS id_user, "
+                + "  CASE WHEN f.id_sender = ? THEN u2.name         ELSE u1.name         END AS name, "
+                + "  CASE WHEN f.id_sender = ? THEN u2.email        ELSE u1.email        END AS email, "
+                + "  CASE WHEN f.id_sender = ? THEN u2.is_connected ELSE u1.is_connected END AS is_connected, "
+                + "  CASE WHEN f.id_sender = ? THEN u2.last_access  ELSE u1.last_access  END AS last_access "
+                + "FROM friendships f "
+                + "JOIN users u1 ON f.id_sender   = u1.id_user "
+                + "JOIN users u2 ON f.id_receiver = u2.id_user "
+                + "WHERE (f.id_sender = ? OR f.id_receiver = ?) "
+                + "  AND f.status = 'APPROVED'";
 
         try {
-
             PreparedStatement ps = getCon().prepareStatement(sql);
-            // 6 parámetros CASE y 2 parámetros WHERE
-            for (int i = 1; i <= 6; i++) {
-                ps.setInt(i, idUsuario);
+            for (int i = 1; i <= 5; i++) {
+                ps.setInt(i, idUser);
             }
-            ps.setInt(7, idUsuario);
-            ps.setInt(8, idUsuario);
+            ps.setInt(6, idUser);
+            ps.setInt(7, idUser);
 
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 friends.add(new User(
-                        rs.getInt("id_usuario"),
-                        rs.getString("Nombre"),
-                        rs.getString("Email"),
-                        rs.getString("Contraseña"),
+                        rs.getInt("id_user"),
+                        rs.getString("name"),
+                        rs.getString("email"),
                         rs.getBoolean("is_connected"),
-                        rs.getString("Ultimo_acceso")
+                        rs.getString("last_access")
                 ));
             }
-
         } catch (SQLException e) {
             System.out.println("[FriendshipDAO] Error al obtener amigos: " + e.getMessage());
         }
@@ -126,44 +115,39 @@ public class FriendshipDAO extends DatabaseConnection {
     }
 
     /*
-        Devuelve las solicitudes de amistad PENDIENTES recibidas por un usuario
-        Solo las devuelve cuando el usuario es el desttinatario
-        Devuelve objetos FriendRequest con el User remitente para que se muestre en la UI X persona te envio una solicitud de amistad
+        Solicitudes PENDIENTES recibidas por un usuario (es el receptor).
+        Devuelve FriendRequest con el User remitente para la UI.
      */
-    public List<FriendRequest> getPendingRequests(int idDestinatario) {
+    public List<FriendRequest> getPendingRequests(int idReceiver) {
         List<FriendRequest> requests = new ArrayList<>();
 
         String sql
-                = "SELECT a.ID_amistad, "
-                + "       u.id_usuario, u.Nombre, u.Email, u.Contraseña, u.Estado, u.Ultimo_acceso "
-                + "FROM amistades a "
-                + "JOIN Usuarios u ON a.ID_remitente = u.id_usuario "
-                + "WHERE a.ID_destinatario = ? AND a.estado = 'PENDING'";
+                = "SELECT f.id_friendship, "
+                + "       u.id_user, u.name, u.email, u.is_connected, u.last_access "
+                + "FROM friendships f "
+                + "JOIN users u ON f.id_sender = u.id_user "
+                + "WHERE f.id_receiver = ? AND f.status = 'PENDING'";
 
         try {
-
             PreparedStatement ps = getCon().prepareStatement(sql);
-            ps.setInt(1, idDestinatario);
+            ps.setInt(1, idReceiver);
             ResultSet rs = ps.executeQuery();
 
             while (rs.next()) {
                 User sender = new User(
-                        rs.getInt("id_usuario"),
-                        rs.getString("Nombre"),
-                        rs.getString("Email"),
-                        rs.getString("Contraseña"),
+                        rs.getInt("id_user"),
+                        rs.getString("name"),
+                        rs.getString("email"),
                         rs.getBoolean("is_connected"),
-                        rs.getString("Ultimo_acceso")
+                        rs.getString("last_access")
                 );
-                FriendRequest fr = new FriendRequest(
-                        rs.getInt("ID_amistad"),
+                requests.add(new FriendRequest(
+                        rs.getInt("id_friendship"),
                         sender,
-                        null, // targetUser no es necesario mostrarlo en la UI
+                        null,
                         RequestStatus.PENDING
-                );
-                requests.add(fr);
+                ));
             }
-
         } catch (SQLException e) {
             System.out.println("[FriendshipDAO] Error al obtener solicitudes pendientes: " + e.getMessage());
         }
@@ -171,31 +155,66 @@ public class FriendshipDAO extends DatabaseConnection {
     }
 
     /*
-         Verifica si dos usuarios son amigos APPROVED
-         Bidireccional, comprueba ambas direcciones del par
-         Sirve criticamente para que la use ConversationDAO y decida si crear una conversacion TEMP o FRIEND al iniciar el chat
+        Solicitudes ENVIADAS por un usuario (es el remitente), en cualquier
+        estado, para que vea PENDIENTE/ACEPTADO/RECHAZADO (RQF19/RQNF33).
+        Devuelve FriendRequest con el User destinatario.
+     */
+    public List<FriendRequest> getSentRequests(int idSender) {
+        List<FriendRequest> requests = new ArrayList<>();
+
+        String sql
+                = "SELECT f.id_friendship, f.status, "
+                + "       u.id_user, u.name, u.email, u.is_connected, u.last_access "
+                + "FROM friendships f "
+                + "JOIN users u ON f.id_receiver = u.id_user "
+                + "WHERE f.id_sender = ?";
+
+        try {
+            PreparedStatement ps = getCon().prepareStatement(sql);
+            ps.setInt(1, idSender);
+            ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                User target = new User(
+                        rs.getInt("id_user"),
+                        rs.getString("name"),
+                        rs.getString("email"),
+                        rs.getBoolean("is_connected"),
+                        rs.getString("last_access")
+                );
+                requests.add(new FriendRequest(
+                        rs.getInt("id_friendship"),
+                        null,
+                        target,
+                        RequestStatus.valueOf(rs.getString("status"))
+                ));
+            }
+        } catch (SQLException e) {
+            System.out.println("[FriendshipDAO] Error al obtener solicitudes enviadas: " + e.getMessage());
+        }
+        return requests;
+    }
+
+    /*
+        Verifica si dos usuarios son amigos (APPROVED). Bidireccional.
      */
     public boolean areFriends(int idUser1, int idUser2) {
         String sql
-                = "SELECT COUNT(*) FROM amistades "
-                + "WHERE ((ID_remitente = ? AND ID_destinatario = ?) "
-                + "    OR (ID_remitente = ? AND ID_destinatario = ?)) "
-                + "  AND estado = 'APPROVED'";
+                = "SELECT COUNT(*) FROM friendships "
+                + "WHERE ((id_sender = ? AND id_receiver = ?) "
+                + "    OR (id_sender = ? AND id_receiver = ?)) "
+                + "  AND status = 'APPROVED'";
 
         try {
-
             PreparedStatement ps = getCon().prepareStatement(sql);
-
             ps.setInt(1, idUser1);
             ps.setInt(2, idUser2);
             ps.setInt(3, idUser2);
             ps.setInt(4, idUser1);
             ResultSet rs = ps.executeQuery();
-
             if (rs.next()) {
                 return rs.getInt(1) > 0;
             }
-
         } catch (SQLException e) {
             System.out.println("[FriendshipDAO] Error al verificar amistad: " + e.getMessage());
         }
@@ -203,92 +222,82 @@ public class FriendshipDAO extends DatabaseConnection {
     }
 
     /*
-        Verifica si ya existe una solicitud entre dos usuarios en cualquier estado, 
-        Combrueba ambas direcciones para evitar que un usuario A le envie una solicitud a usuario B cuando B ya le envio una a usuario A
-        Este es el metodo auxiliar que usa sendFriendRequest()
+        Verifica si ya existe una solicitud entre dos usuarios en cualquier
+        estado (ambas direcciones).
      */
-    public boolean requestAlreadyExists(int idRemitente, int idDestinatario) {
+    public boolean requestAlreadyExists(int idSender, int idReceiver) {
         String sql
-                = "SELECT COUNT(*) FROM amistades "
-                + "WHERE (ID_remitente = ? AND ID_destinatario = ?) "
-                + "   OR (ID_remitente = ? AND ID_destinatario = ?)";
+                = "SELECT COUNT(*) FROM friendships "
+                + "WHERE (id_sender = ? AND id_receiver = ?) "
+                + "   OR (id_sender = ? AND id_receiver = ?)";
 
         try {
-
             PreparedStatement ps = getCon().prepareStatement(sql);
-
-            ps.setInt(1, idRemitente);
-            ps.setInt(2, idDestinatario);
-            ps.setInt(3, idDestinatario);
-            ps.setInt(4, idRemitente);
+            ps.setInt(1, idSender);
+            ps.setInt(2, idReceiver);
+            ps.setInt(3, idReceiver);
+            ps.setInt(4, idSender);
             ResultSet rs = ps.executeQuery();
-
             if (rs.next()) {
                 return rs.getInt(1) > 0;
             }
-
         } catch (SQLException e) {
             System.out.println("[FriendshipDAO] Error al verificar solicitud existente: " + e.getMessage());
         }
         return false;
     }
 
-    // Actualizar
     /*
-        Cambia el estado de una solicitud a APPROVED
-        Despues de que se llama este metodo, el servidor llama ConversationDAO.promoteToFriend si habia un chat TEMP abierto 
-        Se notifica a ambos cliente del nuevo estado via JSON
+        Devuelve los dos ids de usuario implicados en una solicitud, o null.
+        Útil para notificar a ambos al aceptar/rechazar.
      */
-    public void acceptRequest(int idAmistad) {
-        updateStatus(idAmistad, "APPROVED");
-        System.out.println("[FriendshipDAO] Solicitud " + idAmistad + " aceptada.");
-    }
-
-    /*
-        Cambia el estado de una solicitud a DENIED
-        Se conserva el estado en la BD para evitar que se envie otra solicitud inmediatamente despues de ser denegada
-     */
-    public void denyRequest(int idAmistad) {
-        updateStatus(idAmistad, "DENIED");
-        System.out.println("[FriendshipDAO] Solicitud " + idAmistad + " denegada.");
-    }
-
-    /*
-        Este metodo es privado para ser reutilizable al cambiar el estado de una amistad
-        Solo centraliza el UPDATE para que acceptRequest y denyRequest no reptan codigo
-     */
-    private void updateStatus(int idAmistad, String nuevoEstado) {
-        String sql = "UPDATE amistades SET estado = ? WHERE ID_amistad = ?";
+    public int[] getUsersOfRequest(int idFriendship) {
+        String sql = "SELECT id_sender, id_receiver FROM friendships WHERE id_friendship = ?";
         try {
-
             PreparedStatement ps = getCon().prepareStatement(sql);
+            ps.setInt(1, idFriendship);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                return new int[]{rs.getInt("id_sender"), rs.getInt("id_receiver")};
+            }
+        } catch (SQLException e) {
+            System.out.println("[FriendshipDAO] Error al obtener usuarios de la solicitud: " + e.getMessage());
+        }
+        return null;
+    }
 
-            ps.setString(1, nuevoEstado);
-            ps.setInt(2, idAmistad);
+    // Actualizar ---------------------------------------------------------
+    public void acceptRequest(int idFriendship) {
+        updateStatus(idFriendship, "APPROVED");
+        System.out.println("[FriendshipDAO] Solicitud " + idFriendship + " aceptada.");
+    }
+
+    public void denyRequest(int idFriendship) {
+        updateStatus(idFriendship, "DENIED");
+        System.out.println("[FriendshipDAO] Solicitud " + idFriendship + " denegada.");
+    }
+
+    private void updateStatus(int idFriendship, String newStatus) {
+        String sql = "UPDATE friendships SET status = ? WHERE id_friendship = ?";
+        try {
+            PreparedStatement ps = getCon().prepareStatement(sql);
+            ps.setString(1, newStatus);
+            ps.setInt(2, idFriendship);
             ps.executeUpdate();
-
         } catch (SQLException e) {
             System.out.println("[FriendshipDAO] Error al actualizar estado: " + e.getMessage());
         }
     }
 
-    // Eliminar
-    /*
-        Elimina una amistad de la tabla
-        Sirve para cuando un usuario decide eliminar un amigo
-        Se conserva como referencia historica y solo deja de mostrarla en el panel de amigos
-     */
-    public void deleteFriendship(int idAmistad) {
-        String sql = "DELETE FROM amistades WHERE ID_amistad = ?";
+    // Eliminar -----------------------------------------------------------
+    public void deleteFriendship(int idFriendship) {
+        String sql = "DELETE FROM friendships WHERE id_friendship = ?";
         try {
-
             PreparedStatement ps = getCon().prepareStatement(sql);
-
-            ps.setInt(1, idAmistad);
+            ps.setInt(1, idFriendship);
             int rows = ps.executeUpdate();
-            System.out.println("[FriendshipDAO] Amistad " + idAmistad
+            System.out.println("[FriendshipDAO] Amistad " + idFriendship
                     + " eliminada (" + rows + " fila/s).");
-
         } catch (SQLException e) {
             System.out.println("[FriendshipDAO] Error al eliminar amistad: " + e.getMessage());
         }

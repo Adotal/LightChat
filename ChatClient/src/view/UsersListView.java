@@ -7,8 +7,11 @@ import java.awt.event.MouseEvent;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.RoundRectangle2D;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import model.Group;
 import model.User;
 
 /**
@@ -28,10 +31,13 @@ public class UsersListView extends JFrame implements UsersListController.View {
     private JButton btnTabGrupos;
 
     private JButton btnNotificaciones;
+    private JButton btnNuevoGrupo;
     private JButton btnCerrarSesion;
 
-    private ArrayList<User> listaUsuariosMock;
-    private ArrayList<Integer> listaIdAmigosMock;
+    private ArrayList<User> listaUsuarios;
+    private ArrayList<User> listaAmigos;
+    private ArrayList<Group> listaGrupos;
+    private Set<Integer> idsAmigos;
     private String pestañaActiva = "TODOS";
 
     private UsersListController controller;
@@ -154,7 +160,29 @@ public class UsersListView extends JFrame implements UsersListController.View {
         };
         configurarBotonIcono(btnCerrarSesion);
 
+        // Botón "+" para crear un nuevo grupo (RQF28)
+        btnNuevoGrupo = new JButton() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(2f));
+                g2.drawOval(3, 3, 18, 18);
+                g2.drawLine(12, 8, 12, 16);
+                g2.drawLine(8, 12, 16, 12);
+                g2.dispose();
+            }
+        };
+        configurarBotonIcono(btnNuevoGrupo);
+        btnNuevoGrupo.setToolTipText("Crear nuevo grupo");
+        btnNuevoGrupo.addActionListener(e -> {
+            new NewGroupView().setVisible(true);
+            dispose();
+        });
+
         panelNavigationBottom.add(btnNotificaciones);
+        panelNavigationBottom.add(btnNuevoGrupo);
         panelNavigationBottom.add(btnCerrarSesion);
         layeredPane.add(panelNavigationBottom, JLayeredPane.PALETTE_LAYER);
 
@@ -172,7 +200,7 @@ public class UsersListView extends JFrame implements UsersListController.View {
                 int width = layeredPane.getWidth();
                 int height = layeredPane.getHeight();
                 panelBaseContenido.setBounds(0, 0, width, height);
-                panelNavigationBottom.setBounds((width - 210) / 2, height - 68, 210, 48);
+                panelNavigationBottom.setBounds((width - 280) / 2, height - 68, 280, 48);
             }
         });
     }
@@ -187,11 +215,15 @@ public class UsersListView extends JFrame implements UsersListController.View {
 
     private void loadData() {
         // Initialize arrays
-        listaUsuariosMock = new ArrayList<>();
-        listaIdAmigosMock = new ArrayList<>();
+        listaUsuarios = new ArrayList<>();
+        listaAmigos = new ArrayList<>();
+        listaGrupos = new ArrayList<>();
+        idsAmigos = new HashSet<>();
 
-        // Solicita la lista de usuarios al servidor (vía controller)
+        // Solicita usuarios, amigos y grupos al servidor (vía controller)
         controller.fetchAllUsers();
+        controller.fetchFriends();
+        controller.fetchGroups();
     }
 
     private void loadContentAccordingToTab() {
@@ -204,16 +236,18 @@ public class UsersListView extends JFrame implements UsersListController.View {
         gbc.anchor = GridBagConstraints.NORTH;
 
         if (pestañaActiva.equals("GRUPOS")) {
-            panelListaContactos.add(crearFilaGrupo("Nombre del grupo 1"), gbc);
-            gbc.gridy++;
-            panelListaContactos.add(crearFilaGrupo("Nombre del grupo 2"), gbc);
-            gbc.gridy++;
-        } else {
-            for (User user : listaUsuariosMock) {
-                boolean esAmigo = listaIdAmigosMock.contains(user.getIdUser());
-                if (pestañaActiva.equals("AMIGOS") && !esAmigo) {
-                    continue;
-                }
+            for (Group grupo : listaGrupos) {
+                panelListaContactos.add(crearFilaGrupo(grupo), gbc);
+                gbc.gridy++;
+            }
+        } else if (pestañaActiva.equals("AMIGOS")) {
+            for (User user : listaAmigos) {
+                panelListaContactos.add(crearFilaContacto(user, true), gbc);
+                gbc.gridy++;
+            }
+        } else { // TODOS
+            for (User user : listaUsuarios) {
+                boolean esAmigo = idsAmigos.contains(user.getIdUser());
                 panelListaContactos.add(crearFilaContacto(user, esAmigo), gbc);
                 gbc.gridy++;
             }
@@ -247,7 +281,7 @@ public class UsersListView extends JFrame implements UsersListController.View {
             }
         };
 
-        JButton btnAccion = crearBotonAccionContacto(estado);
+        JButton btnAccion = crearBotonAccionContacto(estado, usuario);
         JPanel textos = crearPanelTextos(usuario.getName(), "Ultimo mensaje");
 
         JPanel content = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 11));
@@ -276,7 +310,8 @@ public class UsersListView extends JFrame implements UsersListController.View {
         return armarFilaCompleta(fila);
     }
 
-    private JPanel crearFilaGrupo(String nombre) {
+    private JPanel crearFilaGrupo(Group grupo) {
+        String nombre = grupo.getTitle();
         JPanel fila = crearContenedorFila();
 
         JLabel lblIcono = new JLabel() {
@@ -315,15 +350,15 @@ public class UsersListView extends JFrame implements UsersListController.View {
 
         fila.add(content, BorderLayout.WEST);
 
-        // NAVEGACIÓN: Al hacer clic en la fila del grupo, también abre el ChatView CAMBIAR A CHAT DE GRUPO
+        // NAVEGACIÓN: Al hacer clic en la fila del grupo, abre el chat del grupo.
         fila.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
                 try {
-                    new ChatView().setVisible(true);
+                    new GroupChatView(grupo).setVisible(true);
                     dispose();
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(UsersListView.this, "ChatView no encontrada.");
+                    JOptionPane.showMessageDialog(UsersListView.this, "GroupChatView no encontrada.");
                 }
             }
         });
@@ -385,7 +420,7 @@ public class UsersListView extends JFrame implements UsersListController.View {
         return p;
     }
 
-    private JButton crearBotonAccionContacto(String[] estado) {
+    private JButton crearBotonAccionContacto(String[] estado, User usuario) {
         JButton btn = new JButton() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -418,7 +453,9 @@ public class UsersListView extends JFrame implements UsersListController.View {
             } else if (estado[0].equals("ESPERANDO")) {
                 JOptionPane.showMessageDialog(this, "Esperando respuesta a la solicitud", "Pendiente", JOptionPane.WARNING_MESSAGE);
             } else {
-                JOptionPane.showMessageDialog(this, "Solicitud de amistad enviada");
+                // Envía la solicitud real al servidor (RQF18). El resultado llega
+                // por onFriendRequestResult.
+                controller.sendFriendRequest(usuario.getEmail());
                 estado[0] = "ESPERANDO";
                 btn.repaint();
             }
@@ -479,8 +516,37 @@ public class UsersListView extends JFrame implements UsersListController.View {
 
     @Override
     public void onUsersLoaded(ArrayList<User> users) {
-        listaUsuariosMock = users;
+        listaUsuarios = users;
         loadContentAccordingToTab();
+    }
+
+    @Override
+    public void onFriendsLoaded(ArrayList<User> friends) {
+        listaAmigos = friends;
+        idsAmigos = new HashSet<>();
+        for (User u : friends) {
+            idsAmigos.add(u.getIdUser());
+        }
+        loadContentAccordingToTab();
+    }
+
+    @Override
+    public void onGroupsLoaded(ArrayList<Group> groups) {
+        listaGrupos = groups;
+        loadContentAccordingToTab();
+    }
+
+    @Override
+    public void onFriendRequestResult(boolean ok, String message) {
+        JOptionPane.showMessageDialog(this, message,
+                ok ? "Solicitud" : "Error",
+                ok ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.ERROR_MESSAGE);
+    }
+
+    @Override
+    public void onNewFriendRequest() {
+        // Indicador simple: el usuario puede abrir la campana para verla.
+        btnNotificaciones.setToolTipText("Tienes nuevas solicitudes de amistad");
     }
 
     @Override

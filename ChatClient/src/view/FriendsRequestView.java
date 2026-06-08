@@ -1,25 +1,35 @@
 package view;
 
+import controller.FriendsRequestController;
 import java.awt.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.RoundRectangle2D;
+import java.util.ArrayList;
+import java.util.List;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 
 /**
  * @author alond
  */
-public class FriendsRequestView extends JFrame {
+public class FriendsRequestView extends JFrame implements FriendsRequestController.View {
 
     private JPanel panelPrincipal;
     private JScrollPane scrollPrincipal;
     private JPanel containerInvitaciones;
     private JButton btnVolver; // Nuevo botón de regreso
 
+    private FriendsRequestController controller;
+    private List<FriendsRequestController.FriendReqItem> recibidasAmistad = new ArrayList<>();
+    private List<FriendsRequestController.FriendReqItem> enviadasAmistad = new ArrayList<>();
+    private List<FriendsRequestController.GroupInvItem> invitacionesGrupo = new ArrayList<>();
+
     public FriendsRequestView() {
         initComponents();
         configurarEstilos();
-        cargarDatosPrueba();
+        controller = new FriendsRequestController(this);
+        controller.connect();
+        controller.fetchAll();
     }
 
     private void initComponents() {
@@ -129,21 +139,63 @@ public class FriendsRequestView extends JFrame {
         panelPrincipal.setBackground(fondoOscuro);
     }
 
-    private void cargarDatosPrueba() {
-        // INVITACIONES RECIBIDAS 
-        JPanel cardRecibidas = crearTarjetaSeccion("Invitaciones recibidas");
-        cardRecibidas.add(crearFilaInvitacion("Quiere ser tu amigo", "UsuarioX quiere ser tu amigo", true, cardRecibidas));
-        cardRecibidas.add(crearFilaInvitacion("Nuevo grupo", "Nombre del grupo", true, cardRecibidas));
-        
-        containerInvitaciones.add(cardRecibidas);
-        containerInvitaciones.add(Box.createVerticalStrut(20)); 
+    // ===== Callbacks del controller =====
 
-        // INVITACIONES ENVIADAS
+    @Override
+    public void onFriendRequests(List<FriendsRequestController.FriendReqItem> received,
+            List<FriendsRequestController.FriendReqItem> sent) {
+        SwingUtilities.invokeLater(() -> {
+            this.recibidasAmistad = received;
+            this.enviadasAmistad = sent;
+            reconstruir();
+        });
+    }
+
+    @Override
+    public void onGroupInvitations(List<FriendsRequestController.GroupInvItem> invitations) {
+        SwingUtilities.invokeLater(() -> {
+            this.invitacionesGrupo = invitations;
+            reconstruir();
+        });
+    }
+
+    /** Reconstruye las tarjetas con los datos reales actuales. */
+    private void reconstruir() {
+        containerInvitaciones.removeAll();
+
+        JPanel cardRecibidas = crearTarjetaSeccion("Invitaciones recibidas");
+        for (FriendsRequestController.FriendReqItem fr : recibidasAmistad) {
+            cardRecibidas.add(crearFilaAccion(
+                    fr.name + " quiere ser tu amigo", fr.email,
+                    () -> controller.respondFriend(fr.id, true),
+                    () -> controller.respondFriend(fr.id, false)));
+        }
+        for (FriendsRequestController.GroupInvItem gi : invitacionesGrupo) {
+            cardRecibidas.add(crearFilaAccion(
+                    gi.ownerName + " te invitó a " + gi.groupTitle, "Invitación de grupo",
+                    () -> controller.respondGroup(gi.id, true),
+                    () -> controller.respondGroup(gi.id, false)));
+        }
+        containerInvitaciones.add(cardRecibidas);
+        containerInvitaciones.add(Box.createVerticalStrut(20));
+
         JPanel cardEnviadas = crearTarjetaSeccion("Invitaciones enviadas");
-        cardEnviadas.add(crearFilaInvitacion("Usuario X", "Por confirmar invitacion de amistad", false, cardEnviadas));
-        
+        for (FriendsRequestController.FriendReqItem fr : enviadasAmistad) {
+            cardEnviadas.add(crearFilaEstado(fr.name, "Estado: " + traducirEstado(fr.status)));
+        }
         containerInvitaciones.add(cardEnviadas);
-        containerInvitaciones.add(Box.createVerticalGlue()); 
+        containerInvitaciones.add(Box.createVerticalGlue());
+
+        containerInvitaciones.revalidate();
+        containerInvitaciones.repaint();
+    }
+
+    private String traducirEstado(String status) {
+        switch (status) {
+            case "APPROVED": return "Aceptada";
+            case "DENIED":   return "Rechazada";
+            default:          return "Pendiente";
+        }
     }
 
     private JPanel crearTarjetaSeccion(String titulo) {
@@ -174,93 +226,51 @@ public class FriendsRequestView extends JFrame {
         return card;
     }
 
-    private JPanel crearFilaInvitacion(String titulo, String sub, boolean recibida, JPanel parentCard) {
-        JPanel filaContenedor = new JPanel(new CardLayout());
-        filaContenedor.setOpaque(false);
-        filaContenedor.setPreferredSize(new Dimension(320, 48));
-        filaContenedor.setMinimumSize(new Dimension(200, 48));
-        filaContenedor.setMaximumSize(new Dimension(4000, 48));
-
-        // SOLICITUD NORMAL 
+    /** Fila con botones aceptar/rechazar que ejecutan acciones reales del controller. */
+    private JPanel crearFilaAccion(String titulo, String sub, Runnable onAceptar, Runnable onRechazar) {
         JPanel panelNormal = new JPanel(new BorderLayout());
         panelNormal.setOpaque(false);
         panelNormal.setBorder(new EmptyBorder(4, 22, 4, 22));
+        panelNormal.setMaximumSize(new Dimension(4000, 48));
 
-        JPanel panelTextos = new JPanel(new GridLayout(2, 1, 0, -2));
-        panelTextos.setOpaque(false);
-        
-        JLabel lblT = new JLabel(titulo);
-        lblT.setFont(new Font("Segoe UI", Font.PLAIN, 15));
-        lblT.setForeground(Color.WHITE);
-        
-        JLabel lblS = new JLabel(sub);
-        lblS.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        lblS.setForeground(new Color(130, 143, 179));
-
-        panelTextos.add(lblT);
-        panelTextos.add(lblS);
-        panelNormal.add(panelTextos, BorderLayout.CENTER);
+        panelNormal.add(crearTextos(titulo, sub), BorderLayout.CENTER);
 
         JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 4));
         panelBotones.setOpaque(false);
 
-        // Acción de aceptar, rechazar y deshacer
-        JPanel panelFeedback = new JPanel(new BorderLayout());
-        panelFeedback.setOpaque(false);
-        panelFeedback.setBorder(new EmptyBorder(4, 22, 4, 22));
-
-        JLabel lblMensajeFeedback = new JLabel();
-        lblMensajeFeedback.setFont(new Font("Segoe UI", Font.ITALIC, 14));
-        lblMensajeFeedback.setForeground(new Color(160, 175, 210));
-        panelFeedback.add(lblMensajeFeedback, BorderLayout.CENTER);
-
-        JButton btnDeshacer = new JButton("Deshacer");
-        btnDeshacer.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        btnDeshacer.setForeground(new Color(112, 142, 255));
-        btnDeshacer.setContentAreaFilled(false);
-        btnDeshacer.setBorderPainted(false);
-        btnDeshacer.setFocusPainted(false);
-        btnDeshacer.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        panelFeedback.add(btnDeshacer, BorderLayout.EAST);
-
-        filaContenedor.add(panelNormal, "NORMAL");
-        filaContenedor.add(panelFeedback, "FEEDBACK");
-
-        CardLayout cl = (CardLayout) filaContenedor.getLayout();
-
-        // EVENTOS
-        if (recibida) {
-            JButton btnCheck = crearBotonCircular(true, new Color(28, 55, 219));
-            JButton btnCross = crearBotonCircular(false, new Color(34, 46, 84));
-
-            btnCheck.addActionListener(e -> {
-                lblMensajeFeedback.setText("Invitación aceptada");
-                cl.show(filaContenedor, "FEEDBACK");
-            });
-
-            btnCross.addActionListener(e -> {
-                lblMensajeFeedback.setText("Invitación rechazada");
-                cl.show(filaContenedor, "FEEDBACK");
-            });
-
-            panelBotones.add(btnCheck);
-            panelBotones.add(btnCross);
-        } else {
-            JButton btnCancel = crearBotonCircular(false, new Color(34, 46, 84));
-            
-            btnCancel.addActionListener(e -> {
-                lblMensajeFeedback.setText("Solicitud cancelada");
-                cl.show(filaContenedor, "FEEDBACK");
-            });
-
-            panelBotones.add(btnCancel);
-        }
-
-        // Evento del botón deshacer (regresa a la vista normal)
-        btnDeshacer.addActionListener(e -> cl.show(filaContenedor, "NORMAL"));
+        JButton btnCheck = crearBotonCircular(true, new Color(28, 55, 219));
+        JButton btnCross = crearBotonCircular(false, new Color(34, 46, 84));
+        btnCheck.addActionListener(e -> onAceptar.run());
+        btnCross.addActionListener(e -> onRechazar.run());
+        panelBotones.add(btnCheck);
+        panelBotones.add(btnCross);
 
         panelNormal.add(panelBotones, BorderLayout.EAST);
-        return filaContenedor;
+        return panelNormal;
+    }
+
+    /** Fila de solo lectura que muestra el estado de una solicitud enviada. */
+    private JPanel crearFilaEstado(String titulo, String sub) {
+        JPanel panelNormal = new JPanel(new BorderLayout());
+        panelNormal.setOpaque(false);
+        panelNormal.setBorder(new EmptyBorder(4, 22, 4, 22));
+        panelNormal.setMaximumSize(new Dimension(4000, 48));
+        panelNormal.add(crearTextos(titulo, sub), BorderLayout.CENTER);
+        return panelNormal;
+    }
+
+    private JPanel crearTextos(String titulo, String sub) {
+        JPanel panelTextos = new JPanel(new GridLayout(2, 1, 0, -2));
+        panelTextos.setOpaque(false);
+        JLabel lblT = new JLabel(titulo);
+        lblT.setFont(new Font("Segoe UI", Font.PLAIN, 15));
+        lblT.setForeground(Color.WHITE);
+        JLabel lblS = new JLabel(sub);
+        lblS.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        lblS.setForeground(new Color(130, 143, 179));
+        panelTextos.add(lblT);
+        panelTextos.add(lblS);
+        return panelTextos;
     }
 
     private JButton crearBotonCircular(boolean esCheck, Color fondo) {

@@ -1,10 +1,16 @@
 package server;
 
+import dao.ServerEventDAO;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 /**
  *
@@ -14,6 +20,9 @@ public class JavaServer {
 
     private static final int PORT = 1235;
 
+    private static final DateTimeFormatter TS_FORMAT
+            = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
     // Para que hilos se guarden con identificador incremental
     private final AtomicInteger idCount = new AtomicInteger(0);
 
@@ -21,7 +30,50 @@ public class JavaServer {
     private final Map<Integer, ClientThread> activeClients
             = new ConcurrentHashMap<>();
 
+    // Listeners de eventos (p. ej. la vista de administrador). Thread-safe.
+    private final List<Consumer<String>> eventListeners = new CopyOnWriteArrayList<>();
+
     public JavaServer() {
+    }
+
+    /**
+     * Registra un listener (vista admin) que recibe cada línea de evento
+     * formateada y legible en cuanto ocurre (RQNF91/93).
+     */
+    public void addEventListener(Consumer<String> listener) {
+        eventListeners.add(listener);
+    }
+
+    /**
+     * Registra un evento generado por usuarios o por el servidor (RQNF90).
+     * Notifica a los listeners de inmediato (≤1s, RQNF15/93) con marca
+     * temporal legible (RQNF94) y persiste en BD de forma asíncrona para no
+     * bloquear el hilo del cliente.
+     */
+    public void logEvent(String type, String description) {
+        String timestamp = LocalDateTime.now().format(TS_FORMAT);
+        String line = "[" + timestamp + "] " + type + " - " + description;
+
+        // Consola
+        System.out.println(line);
+
+        // Notificación inmediata a la vista admin
+        for (Consumer<String> listener : eventListeners) {
+            try {
+                listener.accept(line);
+            } catch (Exception ex) {
+                System.out.println("[SERVER] Error notificando listener de evento: " + ex.getMessage());
+            }
+        }
+
+        // Persistencia asíncrona
+        new Thread(() -> {
+            try {
+                new ServerEventDAO().insertEvent(type, description);
+            } catch (Exception ex) {
+                System.out.println("[SERVER] Error persistiendo evento: " + ex.getMessage());
+            }
+        }).start();
     }
 
     public void beginServer() {
@@ -63,6 +115,14 @@ public class JavaServer {
 
     public synchronized void writeConsole(String s) {
         System.out.println(s);
+        // Reflejar también en la vista de administrador (sin persistir).
+        for (Consumer<String> listener : eventListeners) {
+            try {
+                listener.accept(s);
+            } catch (Exception ex) {
+                System.out.println("[SERVER] Error notificando listener de consola: " + ex.getMessage());
+            }
+        }
     }
 
     public void removeClient(int idClient) {

@@ -10,196 +10,145 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-// Miembros_Conversacion la tabla pivote entre usuarios y conversaciones 
+// conversation_members: tabla pivote entre usuarios y conversaciones.
 public class ConversationMemberDAO extends DatabaseConnection {
 
     public ConversationMemberDAO() {
         super();
     }
 
-    // Crear
-    /* Añade un usuario como miembro de una conversacion y se llama al crear un chat directo TEMP o FRIEND y agrega los dos usuarios,
-    y al unirse a un grupo y agrega solo ese usuario al grupo, antes de registrar un usuario verifica con isMember para no hacer un duplicado*/
-    public void addMember(int idUsuario, int idConversacion) {
-        // Verificar primero que no sea miembro ya
-        if (isMember(idUsuario, idConversacion)) {
-            System.out.println("[ConversationMemberDAO] Usuario " + idUsuario
-                    + " ya es miembro de conversación " + idConversacion + ". Operación ignorada.");
+    // Crear -------------------------------------------------------------
+    // Añade un usuario a una conversación (evita duplicados con isMember).
+    public void addMember(int idUser, int idConversation) {
+        if (isMember(idUser, idConversation)) {
+            System.out.println("[ConversationMemberDAO] Usuario " + idUser
+                    + " ya es miembro de conversación " + idConversation + ". Operación ignorada.");
             return;
         }
 
-        String sql = "INSERT INTO Miembros_Conversacion (id_usuario, id_conversacion) VALUES (?, ?)";
+        String sql = "INSERT INTO conversation_members (id_user, id_conversation) VALUES (?, ?)";
         try {
-
             PreparedStatement ps = getCon().prepareStatement(sql);
-
-            ps.setInt(1, idUsuario);
-            ps.setInt(2, idConversacion);
+            ps.setInt(1, idUser);
+            ps.setInt(2, idConversation);
             ps.executeUpdate();
-            System.out.println("[ConversationMemberDAO] Usuario " + idUsuario
-                    + " agregado a conversación " + idConversacion);
-
+            System.out.println("[ConversationMemberDAO] Usuario " + idUser
+                    + " agregado a conversación " + idConversation);
         } catch (SQLException e) {
             System.out.println("[ConversationMemberDAO] Error al agregar miembro: " + e.getMessage());
         }
     }
 
-    // Lectura
-    /* Devuelve la lista de usuarios que pertenecen a una conversacion, sirve para cargar los participantes de un chat 
-        Para que se muestre en UI y para saber a quien reenviar los mensajes en el server
-     */
-    public List<User> getMembersByConversation(int idConversacion) {
+    // Lectura -----------------------------------------------------------
+    // Devuelve los usuarios miembros de una conversación.
+    public List<User> getMembersByConversation(int idConversation) {
         List<User> members = new ArrayList<>();
         String sql
-                = "SELECT u.id_usuario, u.Nombre, u.Email, u.Contraseña, u.Estado, u.Ultimo_acceso "
-                + "FROM Miembros_Conversacion mc "
-                + "JOIN Usuarios u ON mc.id_usuario = u.id_usuario "
-                + "WHERE mc.id_conversacion = ?";
+                = "SELECT u.id_user, u.name, u.email, u.is_connected, u.last_access "
+                + "FROM conversation_members mc "
+                + "JOIN users u ON mc.id_user = u.id_user "
+                + "WHERE mc.id_conversation = ?";
 
         try {
-
             PreparedStatement ps = getCon().prepareStatement(sql);
-
-            ps.setInt(1, idConversacion);
+            ps.setInt(1, idConversation);
             ResultSet rs = ps.executeQuery();
-
             while (rs.next()) {
-                User u = new User(
-                        rs.getInt("id_usuario"),
-                        rs.getString("Nombre"),
-                        rs.getString("Email"),
-                        rs.getString("Contraseña"),
+                members.add(new User(
+                        rs.getInt("id_user"),
+                        rs.getString("name"),
+                        rs.getString("email"),
                         rs.getBoolean("is_connected"),
-                        rs.getString("Ultimo_acceso")
-                );
-                members.add(u);
+                        rs.getString("last_access")
+                ));
             }
-
         } catch (SQLException e) {
             System.out.println("[ConversationMemberDAO] Error al obtener miembros: " + e.getMessage());
         }
         return members;
     }
 
-    /*
-        Devuelve los ids de todas las conversaciones en las que participa un usuario en especifico, 
-    se usa al iniciar sesion para mostrar las conversaciones activas en la lista de chats directos y grupos
-     */
-    public List<Integer> getConversationsByUser(int idUsuario) {
+    // Devuelve los ids de conversaciones en las que participa un usuario.
+    public List<Integer> getConversationsByUser(int idUser) {
         List<Integer> conversationIds = new ArrayList<>();
-        String sql = "SELECT id_conversacion FROM Miembros_Conversacion WHERE id_usuario = ?";
+        String sql = "SELECT id_conversation FROM conversation_members WHERE id_user = ?";
 
         try {
-
             PreparedStatement ps = getCon().prepareStatement(sql);
-
-            ps.setInt(1, idUsuario);
+            ps.setInt(1, idUser);
             ResultSet rs = ps.executeQuery();
-
             while (rs.next()) {
-                conversationIds.add(rs.getInt("id_conversacion"));
+                conversationIds.add(rs.getInt("id_conversation"));
             }
-
         } catch (SQLException e) {
             System.out.println("[ConversationMemberDAO] Error al obtener conversaciones del usuario: " + e.getMessage());
         }
         return conversationIds;
     }
 
-    /*
-        Verifica si un usuario ya es miembro de una conversacion, 
-    este metodo es auxiliar del addMember()  solo para evitar miembros duplicados.
-     */
-    public boolean isMember(int idUsuario, int idConversacion) {
-        String sql = "SELECT COUNT(*) FROM Miembros_Conversacion "
-                + "WHERE id_usuario = ? AND id_conversacion = ?";
+    // Verifica si un usuario ya es miembro de una conversación.
+    public boolean isMember(int idUser, int idConversation) {
+        String sql = "SELECT COUNT(*) FROM conversation_members "
+                + "WHERE id_user = ? AND id_conversation = ?";
 
         try {
-
             PreparedStatement ps = getCon().prepareStatement(sql);
-
-            ps.setInt(1, idUsuario);
-            ps.setInt(2, idConversacion);
+            ps.setInt(1, idUser);
+            ps.setInt(2, idConversation);
             ResultSet rs = ps.executeQuery();
-
             if (rs.next()) {
                 return rs.getInt(1) > 0;
             }
-
         } catch (SQLException e) {
             System.out.println("[ConversationMemberDAO] Error al verificar membresía: " + e.getMessage());
         }
         return false;
     }
 
-    /**
-     * Cuenta cuántos miembros tiene una conversación.
-     *
-     * Útil para grupos: antes de borrar un grupo se puede verificar aquí
-     * cuántos participantes activos quedan en su conversación.
-     *
-     * @param idConversacion id de la conversación
-     * @return número de miembros
-     */
-    /*
-        Cuenta la cantidad de miembros de una conversacion para verificar antes de borrar un grupo cuantos participantes activos quedan en la conversacion
-     */
-    public int getMemberCount(int idConversacion) {
-        String sql = "SELECT COUNT(*) FROM Miembros_Conversacion WHERE id_conversacion = ?";
+    // Cuenta los miembros de una conversación.
+    public int getMemberCount(int idConversation) {
+        String sql = "SELECT COUNT(*) FROM conversation_members WHERE id_conversation = ?";
 
         try {
-
             PreparedStatement ps = getCon().prepareStatement(sql);
-
-            ps.setInt(1, idConversacion);
+            ps.setInt(1, idConversation);
             ResultSet rs = ps.executeQuery();
-
             if (rs.next()) {
                 return rs.getInt(1);
             }
-
         } catch (SQLException e) {
             System.out.println("[ConversationMemberDAO] Error al contar miembros: " + e.getMessage());
         }
         return 0;
     }
 
-    // Eliminar
-    /* Elimina un miembro de una conversacion en especifico
-    Esta funciona para si un usuario se sale de un grupo no para una directa porque ahi se borra toda la conversacion 
-     */
-    public void removeMember(int idUsuario, int idConversacion) {
-        String sql = "DELETE FROM Miembros_Conversacion WHERE id_usuario = ? AND id_conversacion = ?";
+    // Eliminar ----------------------------------------------------------
+    // Elimina un miembro de una conversación (p. ej. al abandonar un grupo).
+    public void removeMember(int idUser, int idConversation) {
+        String sql = "DELETE FROM conversation_members WHERE id_user = ? AND id_conversation = ?";
 
         try {
-
             PreparedStatement ps = getCon().prepareStatement(sql);
-
-            ps.setInt(1, idUsuario);
-            ps.setInt(2, idConversacion);
+            ps.setInt(1, idUser);
+            ps.setInt(2, idConversation);
             int rows = ps.executeUpdate();
-            System.out.println("[ConversationMemberDAO] Usuario " + idUsuario
-                    + " eliminado de conversación " + idConversacion + " (" + rows + " fila/s).");
-
+            System.out.println("[ConversationMemberDAO] Usuario " + idUser
+                    + " eliminado de conversación " + idConversation + " (" + rows + " fila/s).");
         } catch (SQLException e) {
             System.out.println("[ConversationMemberDAO] Error al eliminar miembro: " + e.getMessage());
         }
     }
 
-    /* Elimina todos los miembros de una conversacion previo a borrar la conversacion temporal TEMP, 
-    este metodo es suponiendo que no tengamos ON DELETE CASCADE en la bd que es lo mas probable, no he checado*/
-    public void removeAllMembers(int idConversacion) {
-        String sql = "DELETE FROM Miembros_Conversacion WHERE id_conversacion = ?";
+    // Elimina todos los miembros de una conversación.
+    public void removeAllMembers(int idConversation) {
+        String sql = "DELETE FROM conversation_members WHERE id_conversation = ?";
 
         try {
-
             PreparedStatement ps = getCon().prepareStatement(sql);
-
-            ps.setInt(1, idConversacion);
+            ps.setInt(1, idConversation);
             int rows = ps.executeUpdate();
             System.out.println("[ConversationMemberDAO] " + rows
-                    + " miembro(s) eliminados de conversación " + idConversacion);
-
+                    + " miembro(s) eliminados de conversación " + idConversation);
         } catch (SQLException e) {
             System.out.println("[ConversationMemberDAO] Error al eliminar todos los miembros: " + e.getMessage());
         }

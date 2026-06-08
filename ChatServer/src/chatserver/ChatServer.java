@@ -3,9 +3,11 @@ package chatserver;
 import dao.MessageDAO;
 import dao.UserDAO;
 import java.util.ArrayList;
+import javax.swing.SwingUtilities;
 import model.Message;
 import model.User;
 import server.JavaServer;
+import view.AdminView;
 
 /**
  * @author adotal
@@ -21,7 +23,13 @@ public class ChatServer {
         // Start server
         JavaServer server;
         server = new JavaServer();
+
+        // Panel de administración: se suscribe a los eventos antes de iniciar
+        // para no perder ninguno (RQF42, RQNF91-94).
+        SwingUtilities.invokeLater(() -> new AdminView(server).setVisible(true));
+
         server.beginServer();
+        server.logEvent("SERVER_START", "Servidor iniciado.");
 
         UserDAO userDAO = new UserDAO();
 
