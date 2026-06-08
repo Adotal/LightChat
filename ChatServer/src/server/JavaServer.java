@@ -70,5 +70,14 @@ public class JavaServer {
         writeConsole("[Cliente #" + idClient + "] DISCONNECTED");
                 
     }
+    
+    // Central broadcaster method
+    public void broadcastUserStatus() {
+        writeConsole("[SERVER] Broadcasting real-time status updates to all active sessions...");
+        for (ClientThread client : activeClients.values()) {
+            // Triggers each thread to evaluate its user custom array list and execute .sendMessage()
+            client.sendUserListUpdate();
+        }
+    }
 
 }

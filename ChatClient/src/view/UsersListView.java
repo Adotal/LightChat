@@ -552,8 +552,10 @@ public class UsersListView extends JFrame {
 
                             // ArrayList<User> is full
                             System.out.println("Successfully loaded " + downloadedUsersList.size() + " users.");
-                            listaUsuariosMock = downloadedUsersList;
-                            loadContentAccordingToTab();
+                            SwingUtilities.invokeLater(() -> {
+                                listaUsuariosMock = downloadedUsersList;
+                                loadContentAccordingToTab();
+                            });
                         }
 
                     }
