@@ -1,9 +1,6 @@
 package view;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import controller.UsersListController;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -12,15 +9,12 @@ import java.awt.geom.RoundRectangle2D;
 import java.util.ArrayList;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import model.SessionManager;
 import model.User;
-import model.dbrequest.LoginRequest;
-import socket.ClientSocket;
 
 /**
  * @author alond
  */
-public class UsersListView extends JFrame {
+public class UsersListView extends JFrame implements UsersListController.View {
 
     private JLayeredPane layeredPane;
     private JPanel panelBaseContenido;
@@ -40,9 +34,12 @@ public class UsersListView extends JFrame {
     private ArrayList<Integer> listaIdAmigosMock;
     private String pestañaActiva = "TODOS";
 
+    private UsersListController controller;
+
     public UsersListView() {
         initComponents();
-        initSocket();
+        controller = new UsersListController(this);
+        controller.connect();
         loadData();
         configurarEstilos();
         loadContentAccordingToTab();
@@ -165,21 +162,7 @@ public class UsersListView extends JFrame {
         btnCerrarSesion.addActionListener(e -> {
             int respuesta = JOptionPane.showConfirmDialog(this, "¿Seguro de cerrar sesión?", "Cerrar Sesión", JOptionPane.YES_NO_OPTION);
             if (respuesta == JOptionPane.YES_OPTION) {
-                try {
-
-                    // Build JSON using Jackson
-                    ObjectMapper mapper = new ObjectMapper();
-                    ObjectNode request = mapper.createObjectNode();
-                    request.put("type", "LOGOUT_REQUEST");
-                    request.put("email", SessionManager.getInstance().getCurrentUser().getEmail());
-                    String json = mapper.writeValueAsString(request);
-
-                    // Enviar el JSON al servidor
-                    ClientSocket.getInstance().sendText(json);
-
-                } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(this, "LoginView no encontrada.");
-                }
+                controller.logout();
             }
         });
 
@@ -207,31 +190,8 @@ public class UsersListView extends JFrame {
         listaUsuariosMock = new ArrayList<>();
         listaIdAmigosMock = new ArrayList<>();
 
-        // Send fetch all users request
-        try {
-
-            // Build JSON using Jackson
-            ObjectMapper mapper = new ObjectMapper();
-            ObjectNode request = mapper.createObjectNode();
-            request.put("type", "FETCH_ALL_USERS");
-            request.put("email", SessionManager.getInstance().getCurrentUser().getEmail());
-
-            String json = mapper.writeValueAsString(request);
-            // Enviar el JSON al servidor
-            ClientSocket.getInstance().sendText(json);
-
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Error al enviar solicitud: " + ex.getMessage());
-            ex.printStackTrace();
-        }
-
-        // Fetch ALL Users
-//        listaUsuariosMock.add(new User(1, "Anna", "anna@email.com", false));
-//        listaUsuariosMock.add(new User(2, "Fernando", "fernando@email.com", false));
-//        listaUsuariosMock.add(new User(3, "Damaris", "damaris@email.com", true));
-//        listaUsuariosMock.add(new User(4, "Adro", "adro@email.com", false));
-//        listaIdAmigosMock.add(1);
-//        listaIdAmigosMock.add(3);
+        // Solicita la lista de usuarios al servidor (vía controller)
+        controller.fetchAllUsers();
     }
 
     private void loadContentAccordingToTab() {
@@ -515,56 +475,18 @@ public class UsersListView extends JFrame {
         EventQueue.invokeLater(() -> new UsersListView().setVisible(true));
     }
 
-    private void initSocket() {
-        // Get the global (singleton) instance
-        ClientSocket client = ClientSocket.getInstance();
+    // ===== Callbacks de UsersListController.View (solo UI/navegación) =====
 
-        // Tell the client to send updates to this frame's label
-        //client.setStatusListener(mensaje -> lblConStatus.setText(mensaje));
-        // Server responess Mapping
-        client.setMessageListener(rawJson -> {
-            try {
-                ObjectMapper mapper = new ObjectMapper();
-                JsonNode rootNode = mapper.readTree(rawJson);
+    @Override
+    public void onUsersLoaded(ArrayList<User> users) {
+        listaUsuariosMock = users;
+        loadContentAccordingToTab();
+    }
 
-                if (rootNode.has("type")) {
-                    String tipo = rootNode.get("type").asText();
-
-                    if (tipo.equals("UPDATE_CON_STATUS")) {
-                        // Update con status
-
-                    } else if (tipo.equals("LOGOUT_SUCCESS")) {
-                        // Clear session
-                        SessionManager.getInstance().logout();
-                        // Return login
-                        new LoginView().setVisible(true);
-                        dispose();
-                    } else if (tipo.equals("UPDATE_USERS_LIST")) {
-
-                        if (rootNode.has("users")) {
-
-                            //  Use TypeReference to preserve the target collection types
-                            ArrayList<User> downloadedUsersList = mapper.convertValue(
-                                    rootNode.get("users"),
-                                    new TypeReference<ArrayList<User>>() {
-                            }
-                            );
-
-                            // ArrayList<User> is full
-                            System.out.println("Successfully loaded " + downloadedUsersList.size() + " users.");
-                            listaUsuariosMock = downloadedUsersList;
-                            loadContentAccordingToTab();
-                        }
-
-                    }
-                }
-            } catch (Exception ex) {
-                System.err.println("Error procesando respuesta del servidor: " + ex.getMessage());
-            }
-        });
-
-        // Connect
-        client.tryConnect();
+    @Override
+    public void onLogoutSuccess() {
+        new LoginView().setVisible(true);
+        dispose();
     }
 
 }

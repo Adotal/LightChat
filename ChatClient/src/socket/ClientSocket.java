@@ -8,8 +8,6 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.Properties;
-import java.util.function.Consumer;
-import javax.swing.SwingUtilities;
 
 /**
  *
@@ -17,8 +15,9 @@ import javax.swing.SwingUtilities;
  */
 
 /*
-    This Singleton mantains the connection with Server through websocket
-    And Safely update UI with a Consumer
+    Singleton que mantiene la conexion TCP con el servidor.
+    Es agnostico de la UI: reenvia cada linea recibida y cada cambio de estado
+    al ServerDispatcher, que se encarga del enrutamiento y del marshaling al EDT.
  */
 public class ClientSocket {
 
@@ -32,12 +31,6 @@ public class ClientSocket {
     private final String host;
     private final int port;
     private Socket clientSocket;
-
-    // The active listener for UI updates
-    private Consumer<String> onStatusUpdate;
-
-    // The active listener to process incoming JSON messages from the server
-    private Consumer<String> onMessageReceived;
 
     // PRIVATE constructor prevents from using 'new ClientSocket()'
     private ClientSocket() {
@@ -65,16 +58,6 @@ public class ClientSocket {
             instance = new ClientSocket();
         }
         return instance;
-    }
-
-    // Allow the active JFrame to intercept JSON responses from the server
-    public void setMessageListener(Consumer<String> listener) {
-        this.onMessageReceived = listener;
-    }
-
-    // Allow the active JFrame to set itself as the receiver of updates
-    public void setStatusListener(Consumer<String> listener) {
-        this.onStatusUpdate = listener;
     }
 
     public void tryConnect() {
@@ -125,13 +108,9 @@ public class ClientSocket {
             while ((receivedLine = reader.readLine()) != null) {
                 System.out.println("\n[Socket] Recibido desde Servidor: " + receivedLine);
 
-                // Forward the raw JSON string straight to the active View 
-                // using SwingUtilities to prevent multi-threading crashes.
-                if (onMessageReceived != null) {
-                    final String rawJson = receivedLine;
-                    SwingUtilities.invokeLater(() -> onMessageReceived.accept(rawJson));
-                }
-
+                // Reenvia la linea cruda al dispatcher, que la enruta al
+                // controller adecuado y la lleva al EDT.
+                ServerDispatcher.getInstance().dispatch(receivedLine);
             }
         } catch (IOException e) {
             System.err.println("\nConexión perdida con el servidor: " + e.getMessage());
@@ -159,9 +138,7 @@ public class ClientSocket {
     }
 
     private void updateStatus(String message) {
-        if (onStatusUpdate != null) {
-            SwingUtilities.invokeLater(() -> onStatusUpdate.accept(message));
-        }
+        ServerDispatcher.getInstance().dispatchStatus(message);
     }
 
     private void closeSocket() {

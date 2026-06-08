@@ -1,14 +1,12 @@
 package view;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import controller.SignUpController;
 import java.awt.*;
 import java.awt.geom.RoundRectangle2D;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import model.dbrequest.SignUpRequest;
-import socket.ClientSocket;
 
-public class SignUpView extends JFrame {
+public class SignUpView extends JFrame implements SignUpController.View {
 
     private JPanel panelPrincipal;
     private JTextField txtUsuario;
@@ -17,10 +15,13 @@ public class SignUpView extends JFrame {
     private JButton btnSignUp;
     private JLabel lblIrALogin;
 
+    private SignUpController controller;
+
     public SignUpView() {
         super();
         initComponents();
-        initSocket();
+        controller = new SignUpController(this);
+        controller.connect();
     }
 
     private void initComponents() {
@@ -136,23 +137,8 @@ public class SignUpView extends JFrame {
                 return;
             }
 
-            // Send login request
-            try {
-                // Create object from data
-                SignUpRequest request = new SignUpRequest(username, email, password);
-
-                // Convert object to JSON usign Jackson
-                ObjectMapper mapper = new ObjectMapper();
-                String jsonString = mapper.writeValueAsString(request);
-
-                // Enviar el JSON al servidor
-                ClientSocket.getInstance().sendText(jsonString);
-
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Error al enviar solicitud: " + ex.getMessage());
-                ex.printStackTrace();
-            }
-
+            // Delega la lógica de negocio al controller
+            controller.signUp(username, email, password);
         });
 
         gbc.gridy = 7;
@@ -324,43 +310,18 @@ public class SignUpView extends JFrame {
         });
     }
 
-    private void initSocket() {
-        // Get the global (singleton) instance
-        ClientSocket client = ClientSocket.getInstance();
+    // ===== Callbacks de SignUpController.View (solo UI/navegación) =====
 
-        // Tell the client to send updates to this frame's label
-        //client.setStatusListener(mensaje -> lblConStatus.setText(mensaje));
-        // Server responess Mapping
-        client.setMessageListener(rawJson -> {
-            try {
-                ObjectMapper mapper = new ObjectMapper();
-                com.fasterxml.jackson.databind.JsonNode rootNode = mapper.readTree(rawJson);
+    @Override
+    public void onSignUpSuccess() {
+        JOptionPane.showMessageDialog(this, "Registro exitoso");
+        new LoginView().setVisible(true);
+        this.dispose();
+    }
 
-                if (rootNode.has("type")) {
-                    String tipo = rootNode.get("type").asText();
-
-                    if (tipo.equals("SIGNUP_SUCCESS")) {
-                        // On signup success, go to login
-                        JOptionPane.showMessageDialog(this, "Registro exitoso");
-
-                        new LoginView().setVisible(true);
-                        this.dispose();
-
-                    } else if (tipo.equals("SIGNUP_ERROR")) {
-                        // Extract custom error message from server if it exists
-                        String errorMsg = rootNode.has("message") ? rootNode.get("message").asText() : "Correo ya utilizado";
-
-                        // On Login failure, display dialog cleanly
-                        JOptionPane.showMessageDialog(this, "Error en signup: " + errorMsg);
-                    }
-                }
-            } catch (Exception ex) {
-                System.err.println("Error procesando respuesta del servidor: " + ex.getMessage());
-            }
-        });
-
-        // Connect
-        client.tryConnect();
+    @Override
+    public void onSignUpError(String message) {
+        JOptionPane.showMessageDialog(this, "Error en signup: " + message);
     }
 
 }
