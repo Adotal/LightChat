@@ -24,7 +24,7 @@ public class ChatView extends BaseChatView implements ChatController.View {
     public ChatView(User receiverUser, String chatType) {
         super();
         this.chatType = chatType;
-        controller = new ChatController(this, receiverUser);
+        controller = new ChatController(this, receiverUser, chatType);
         initComponents();
         actualizarEstadoUsuario();
         controller.connect();
@@ -104,7 +104,13 @@ public class ChatView extends BaseChatView implements ChatController.View {
 
     @Override
     public void onDeleteChat() {
-
+        // El otro usuario cerró sesión/se desconectó: el chat efímero (Todos)
+        // desaparece. Avisar y cerrar la ventana.
+        SwingUtilities.invokeLater(() -> {
+            JOptionPane.showMessageDialog(this,
+                    "La conversación finalizó porque el otro usuario se desconectó.");
+            dispose();
+        });
     }
 
     @Override

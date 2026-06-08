@@ -280,18 +280,24 @@ public class ClientThread implements Runnable {
                                     ConversationMemberDAO memberDAO = new ConversationMemberDAO();
                                     boolean friends = new FriendshipDAO().areFriends(idSender, idReceiver);
 
-                                    // Resolver/crear conversación
-                                    int idConv = convDAO.getConversationIdByUsers(idSender, idReceiver);
+                                    // La pestaña de origen decide el comportamiento: desde "Todos"
+                                    // el chat es siempre efímero (TEMP), aun entre amigos; desde
+                                    // "Amigos" es persistente (FRIEND). Pueden coexistir ambas.
+                                    String accessMode = rootNode.has("access_mode")
+                                            ? rootNode.get("access_mode").asText() : "TODOS";
+                                    boolean persistent = friends && "AMIGOS".equals(accessMode);
+                                    String desiredType = persistent ? "FRIEND" : "TEMP";
+
+                                    // Resolver/crear conversación del tipo correspondiente
+                                    int idConv = convDAO.getConversationIdByUsersAndType(idSender, idReceiver, desiredType);
                                     if (idConv == -1) {
-                                        idConv = convDAO.createDirectConversation(friends ? "FRIEND" : "TEMP");
+                                        idConv = convDAO.createDirectConversation(desiredType);
                                         memberDAO.addMember(idSender, idConv);
                                         memberDAO.addMember(idReceiver, idConv);
-                                    } else if (friends && "TEMP".equals(convDAO.getConversationType(idConv))) {
-                                        convDAO.promoteToFriend(idConv);
                                     }
 
-                                    // Persistir solo si son amigos (RQNF47/51); TEMP es efímero (RQNF27)
-                                    if (friends) {
+                                    // Persistir solo si es FRIEND vía Amigos (RQNF47/51); TEMP es efímero (RQNF27)
+                                    if (persistent) {
                                         new MessageDAO().insertMessage(new Message(0, idConv, idSender, text, null));
                                         convDAO.updateLastSeen(idConv);
                                     }
@@ -415,6 +421,8 @@ public class ClientThread implements Runnable {
                         ObjectNode n = mapper.createObjectNode();
                         n.put("type", "DELETE_CHAT");
                         n.put("otherUserId", userId);
+                        // Solo afecta a la ventana de "Todos" (chat efímero).
+                        n.put("access_mode", "TODOS");
                         t.sendMessage(mapper.writeValueAsString(n));
                     }
                 }
@@ -528,14 +536,8 @@ public class ClientThread implements Runnable {
 
             if (accept) {
                 friendDAO.acceptRequest(idFriendship);
-                if (users != null) {
-                    // Promover conversación TEMP existente a FRIEND (conserva historial)
-                    ConversationDAO convDAO = new ConversationDAO();
-                    int idConv = convDAO.getConversationIdByUsers(users[0], users[1]);
-                    if (idConv != -1) {
-                        convDAO.promoteToFriend(idConv);
-                    }
-                }
+                // No se promueve la conversación TEMP de "Todos": es efímera por diseño.
+                // El chat de "Amigos" crea su propia conversación FRIEND al primer mensaje.
             } else {
                 friendDAO.denyRequest(idFriendship);
             }
@@ -583,9 +585,16 @@ public class ClientThread implements Runnable {
             int userId = root.get("userId").asInt();
             int otherUserId = root.get("otherUserId").asInt();
 
+            // El historial mostrado coincide con la pestaña: Amigos→FRIEND (persistido);
+            // Todos→TEMP (efímero, sin historial persistido).
+            String accessMode = root.has("access_mode") ? root.get("access_mode").asText() : "TODOS";
+            boolean persistent = "AMIGOS".equals(accessMode)
+                    && new FriendshipDAO().areFriends(userId, otherUserId);
+            String desiredType = persistent ? "FRIEND" : "TEMP";
+
             ArrayNode msgs = mapper.createArrayNode();
             ConversationDAO convDAO = new ConversationDAO();
-            int idConv = convDAO.getConversationIdByUsers(userId, otherUserId);
+            int idConv = convDAO.getConversationIdByUsersAndType(userId, otherUserId, desiredType);
             if (idConv != -1) {
                 UserDAO userDAO = new UserDAO();
                 User self = userDAO.getUserById(userId);

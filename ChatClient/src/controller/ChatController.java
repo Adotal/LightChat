@@ -45,6 +45,8 @@ public class ChatController {
     private final User currentUser;
     private final User receiverUser;
     private final Chat chat;
+    // Pestaña de origen: "TODOS" (chat efímero) o "AMIGOS" (chat persistente).
+    private final String accessMode;
 
     // Referencias a los handlers registrados, para poder desregistrarlos al cerrar.
     private Consumer<JsonNode> sendMessageHandler;
@@ -52,9 +54,14 @@ public class ChatController {
     private Consumer<JsonNode> historyHandler;
 
     public ChatController(View view, User receiverUser) {
+        this(view, receiverUser, "TODOS");
+    }
+
+    public ChatController(View view, User receiverUser, String accessMode) {
         this.view = view;
         this.currentUser = SessionManager.getInstance().getCurrentUser();
         this.receiverUser = receiverUser;
+        this.accessMode = (accessMode == null) ? "TODOS" : accessMode;
         this.chat = new Chat(101, receiverUser, new ArrayList<>());
         registerHandlers();
     }
@@ -66,6 +73,12 @@ public class ChatController {
             try {
                 // Ignorar payloads de grupo: este handler solo procesa chat directo.
                 if (rootNode.has("chat_type") && !"TODOS".equals(rootNode.get("chat_type").asText())) {
+                    return;
+                }
+                // Separar ventanas Todos/Amigos: ignorar mensajes de la otra pestaña.
+                String incomingMode = rootNode.has("access_mode")
+                        ? rootNode.get("access_mode").asText() : "TODOS";
+                if (!accessMode.equals(incomingMode)) {
                     return;
                 }
                 //  Reutilizar el ObjectMapper para deserializar el nodo 'message'
@@ -101,6 +114,11 @@ public class ChatController {
             // Solo cerrar si el DELETE_CHAT corresponde a esta conversación.
             if (root.has("otherUserId")
                     && root.get("otherUserId").asInt() != receiverUser.getIdUser()) {
+                return;
+            }
+            // Solo afecta a la ventana de la misma pestaña (Todos efímero).
+            if (root.has("access_mode")
+                    && !accessMode.equals(root.get("access_mode").asText())) {
                 return;
             }
             view.onDeleteChat();
@@ -161,6 +179,7 @@ public class ChatController {
             req.put("type", "FETCH_CONVERSATION_HISTORY");
             req.put("userId", currentUser.getIdUser());
             req.put("otherUserId", receiverUser.getIdUser());
+            req.put("access_mode", accessMode);
             ClientSocket.getInstance().sendText(Json.mapper().writeValueAsString(req));
         } catch (Exception ex) {
             System.err.println("[ChatController] Error al pedir historial: " + ex.getMessage());
@@ -194,6 +213,7 @@ public class ChatController {
             ObjectNode responseNode = mapper.createObjectNode();
             responseNode.put("type", "SEND_MESSAGE");
             responseNode.put("chat_type", "TODOS");
+            responseNode.put("access_mode", accessMode);
             responseNode.set("message", mapper.valueToTree(message));
             // Convert the entire object node to a string and send it
             String json = mapper.writeValueAsString(responseNode);

@@ -76,6 +76,34 @@ public class ConversationDAO extends DatabaseConnection {
         return -1;
     }
 
+    // Busca la conversación directa de un tipo concreto (TEMP/FRIEND) entre dos
+    // usuarios; -1 si no existe. Permite coexistir una TEMP (Todos) y una FRIEND
+    // (Amigos) para el mismo par.
+    public int getConversationIdByUsersAndType(int idUser1, int idUser2, String type) {
+        String sql
+                = "SELECT c.id_conversation "
+                + "FROM conversations c "
+                + "JOIN conversation_members mc ON c.id_conversation = mc.id_conversation "
+                + "WHERE mc.id_user IN (?, ?) "
+                + "AND c.type = ? "
+                + "GROUP BY c.id_conversation "
+                + "HAVING COUNT(DISTINCT mc.id_user) = 2";
+
+        try {
+            PreparedStatement ps = getCon().prepareStatement(sql);
+            ps.setInt(1, idUser1);
+            ps.setInt(2, idUser2);
+            ps.setString(3, type);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                return rs.getInt("id_conversation");
+            }
+        } catch (SQLException e) {
+            System.out.println("[ConversationDAO] Error al buscar conversación por usuarios y tipo: " + e.getMessage());
+        }
+        return -1;
+    }
+
     // Devuelve el tipo (TEMP, FRIEND, GROUP) de una conversación.
     public String getConversationType(int idConversation) {
         String sql = "SELECT type FROM conversations WHERE id_conversation = ?";
