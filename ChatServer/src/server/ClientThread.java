@@ -18,6 +18,10 @@ public class ClientThread implements Runnable {
     private final Socket client;
     private final JavaServer server;
 
+// Class-level properties to allow external threads to message this client
+    private java.io.PrintWriter out;
+    private String userEmail = null;
+
     public ClientThread(Socket client, int clientId, JavaServer server) {
         this.client = client;
         this.clientId = clientId;
@@ -27,6 +31,45 @@ public class ClientThread implements Runnable {
 
     public int getId() {
         return clientId;
+    }
+
+    // Public helper to securely push raw text down this specific socket
+    public synchronized void sendMessage(String msg) {
+        System.out.println("ARRIVE OUT");
+        if (out != null) {
+            out.println(msg);
+            System.out.println("ARRIVE SENT");
+        }
+    }
+
+    // Self-contained method to fetch and send the updated list to this client
+    public void sendUserListUpdate() {
+        
+        if (this.userEmail == null) {
+            return; // Do not send updates to clients still on the login screen
+        }
+        try {
+            
+            System.out.println("[SENT:] " + this.userEmail);
+            
+            ObjectMapper mapper = new ObjectMapper();
+            UserDAO userDAO = new UserDAO();
+            ArrayList<User> activeUsers = userDAO.getAllUsersNotEmail(this.userEmail);
+
+            for (User u : activeUsers) {
+                u.setPassword(null); // Security erasure
+            }
+
+            ObjectNode response = mapper.createObjectNode();
+            response.put("type", "UPDATE_USERS_LIST");
+            response.set("users", mapper.valueToTree(activeUsers));
+            
+
+
+            sendMessage(mapper.writeValueAsString(response));
+        } catch (Exception e) {
+            server.writeConsole("[Cliente #" + clientId + "] Error processing broadcast update: " + e.getMessage());
+        }
     }
 
     @Override
@@ -44,6 +87,10 @@ public class ClientThread implements Runnable {
                 ); java.io.PrintWriter out = new java.io.PrintWriter(
                         new java.io.OutputStreamWriter(client.getOutputStream(), java.nio.charset.StandardCharsets.UTF_8), true
                 )) {
+            // Initialize class field writer
+            this.out = new java.io.PrintWriter(
+                    new java.io.OutputStreamWriter(client.getOutputStream(), java.nio.charset.StandardCharsets.UTF_8), true
+            );
             String receivedData;
 
             // readLine() se pausa automáticamente hasta recibir un '\n'. 
@@ -77,6 +124,8 @@ public class ClientThread implements Runnable {
                                 // Change con status to true
                                 userDAO.changeIsConnected(emailReq, true);
 //                                retrievedUser.setIsConnected(true);
+                                // Save current email status & tell server to update everyone
+                                this.userEmail = emailReq;
 
                                 // Clear the password for security before sending it over the network
                                 retrievedUser.setPassword(null);
@@ -91,6 +140,9 @@ public class ClientThread implements Runnable {
                                 // Convert the entire object node to a string and send it
                                 String jsonResponse = mapper.writeValueAsString(responseNode);
                                 out.println(jsonResponse);
+
+                                // Notify all clients of the new online state
+                                server.broadcastUserStatus();
 
                             } else {
                                 server.writeConsole("[Cliente #" + clientId + "] LOGIN FAILURE: For " + emailReq);
@@ -161,6 +213,11 @@ public class ClientThread implements Runnable {
                             // HERE ALL TODOS MESSAGES WITH EMAIL emailReq SHOULD BE DELETED
                             // Return success
                             out.println("{\"type\": \"LOGOUT_SUCCESS\"}");
+
+                            // Clear our email reference and alert everyone they went offline
+                            this.userEmail = null;
+                            server.broadcastUserStatus();
+
                         } else if (tipo.equals("FETCH_ALL_USERS")) {
 
                             // Get email not to load
@@ -191,7 +248,19 @@ public class ClientThread implements Runnable {
             System.getLogger(ClientThread.class.getName()).log(
                     System.Logger.Level.ERROR, "Conexión interrumpida o cliente desconectado", e);
         } finally {
+            // Clean up safety layer. If window closed abruptly, force DB offline status
+            if (this.userEmail != null) {
+                try {
+                    new UserDAO().changeIsConnected(this.userEmail, false);
+                } catch (Exception ex) {
+                    server.writeConsole("Error setting database offline state on unexpected drop.");
+                }
+            }
             server.removeClient(clientId);
+
+            // NEW: Alert remaining users that this client left
+            server.broadcastUserStatus();
+
         }
     }
 
