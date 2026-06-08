@@ -2,10 +2,22 @@
 
 Revisión de redacción, precisión y clasificación de [requerimientos.md](requerimientos.md).
 
-## Criterio final (v2)
+## Criterio final (v3)
 
-- **Las validaciones son requerimientos NO funcionales.** Los funcionales describen las acciones del usuario/sistema; las validaciones y atributos de calidad van en la columna de no funcionales.
-- **Numeración plana:** `RQF1..32` y `RQNF1..104`, continua y sin sub-numeración (`x.x`).
+- **Las validaciones son requerimientos NO funcionales.**
+- **Lo que el usuario percibe es funcional:** las confirmaciones y los mensajes de error que el usuario ve (incluido el manejo de fallos por try/catch) son requerimientos funcionales, redactados desde la perspectiva del usuario ("El usuario visualiza...").
+- En la columna no funcional quedan solo validaciones internas y atributos de calidad (rendimiento, usabilidad, seguridad, fiabilidad, persistencia).
+- **Numeración plana:** `RQF1..42` y `RQNF1..94`, continua y sin sub-numeración (`x.x`).
+
+## Cambio v2 → v3
+
+Los mensajes/confirmaciones que el usuario percibe se movieron de la columna no funcional a la funcional, redactados desde la perspectiva del usuario:
+
+- Mensaje de motivo de rechazo del registro (ex-RQNF6) → **RQF2**.
+- Mensajes de error por try/catch (ex-RQNF8, 14, 19, 31, 46, 59, 88, 99) → **RQF3, RQF6, RQF10, RQF16, RQF22, RQF27, RQF37, RQF41**.
+- Confirmación de cambio de contraseña (ex-RQNF18) → **RQF9**.
+
+Todo el documento se renumeró en consecuencia (RQF1–42, RQNF1–94).
 
 ## Correcciones aplicadas
 
