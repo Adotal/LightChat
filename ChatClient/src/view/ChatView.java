@@ -109,6 +109,8 @@ public class ChatView extends BaseChatView implements ChatController.View {
         SwingUtilities.invokeLater(() -> {
             JOptionPane.showMessageDialog(this,
                     "La conversación finalizó porque el otro usuario se desconectó.");
+            
+            new UsersListView().setVisible(true);
             dispose();
         });
     }
