@@ -197,12 +197,23 @@ public class UsersListView extends JFrame implements UsersListController.View {
         addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentResized(java.awt.event.ComponentEvent evt) {
-                int width = layeredPane.getWidth();
-                int height = layeredPane.getHeight();
-                panelBaseContenido.setBounds(0, 0, width, height);
-                panelNavigationBottom.setBounds((width - 280) / 2, height - 68, 280, 48);
+                ajustarLayout();
+            }
+
+            @Override
+            public void componentShown(java.awt.event.ComponentEvent evt) {
+                ajustarLayout();
             }
         });
+    }
+
+    private void ajustarLayout() {
+        int width = layeredPane.getWidth();
+        int height = layeredPane.getHeight();
+        panelBaseContenido.setBounds(0, 0, width, height);
+        panelNavigationBottom.setBounds((width - 280) / 2, height - 68, 280, 48);
+        layeredPane.revalidate();
+        layeredPane.repaint();
     }
 
     private void configurarEstilos() {
