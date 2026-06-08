@@ -1,22 +1,18 @@
 package view;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import controller.LoginController;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import model.SessionManager;
-import model.User;
-import model.dbrequest.LoginRequest;
-import socket.ClientSocket;
 
 /**
  * @author alond
  * @author adotal
  */
-public class LoginView extends JFrame {
+public class LoginView extends JFrame implements LoginController.View {
 
     private JPanel panelPrincipal;
     private JTextField txtEmail;
@@ -25,12 +21,13 @@ public class LoginView extends JFrame {
     private JLabel lblIrARegistro;
     private JLabel lblConStatus;
 
-    private int errorCount = 0;
+    private LoginController controller;
 
     public LoginView() {
         super();
         initComponents();
-        initSocket();
+        controller = new LoginController(this);
+        controller.connect();
     }
 
     private void initComponents() {
@@ -119,22 +116,8 @@ public class LoginView extends JFrame {
                 return;
             }
 
-            // Send login request
-            try {
-                // Create object from data
-                LoginRequest request = new LoginRequest(email, password);
-
-                // Convert object to JSON usign Jackson
-                ObjectMapper mapper = new ObjectMapper();
-                String jsonString = mapper.writeValueAsString(request);
-
-                // Enviar el JSON al servidor
-                ClientSocket.getInstance().sendText(jsonString);
-
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Error al enviar solicitud: " + ex.getMessage());
-                ex.printStackTrace();
-            }
+            // Delega la lógica de negocio al controller
+            controller.login(email, password);
         });
 
         gbc.gridy = 6;
@@ -274,66 +257,31 @@ public class LoginView extends JFrame {
         });
     }
 
-    private void initSocket() {
-        // Get the global (singleton) instance
-        ClientSocket client = ClientSocket.getInstance();
+    // ===== Callbacks de LoginController.View (solo UI/navegación) =====
 
-        // Tell the client to send updates to this frame's label
-        client.setStatusListener(mensaje -> lblConStatus.setText(mensaje));
+    @Override
+    public void onStatus(String message) {
+        lblConStatus.setText(message);
+    }
 
-        // Server responess Mapping
-        client.setMessageListener(rawJson -> {
-            try {
-                ObjectMapper mapper = new ObjectMapper();
-                com.fasterxml.jackson.databind.JsonNode rootNode = mapper.readTree(rawJson);
+    @Override
+    public void onLoginSuccess() {
+        new UsersListView().setVisible(true);
+        this.dispose();
+    }
 
-                if (rootNode.has("type")) {
-                    String tipo = rootNode.get("type").asText();
+    @Override
+    public void onLoginError(String message) {
+        JOptionPane.showMessageDialog(this, "Error en login: " + message, "Error de acceso", JOptionPane.ERROR_MESSAGE);
+    }
 
-                    if (tipo.equals("LOGIN_SUCCESS")) {
-
-                        // Check if the response contains the user sub-node
-                        if (rootNode.has("user")) {
-                            // Parse the sub-node directly into a User instance
-                            User loggedUser = mapper.treeToValue(rootNode.get("user"), User.class);
-
-                            // Save it inside your application's Singleton Session Manager
-                            SessionManager.getInstance().setCurrentUser(loggedUser);
-                        }
-
-                        // On Login success, open the list view and close login window
-                        new UsersListView().setVisible(true);
-                        this.dispose();
-
-                    } else if (tipo.equals("LOGIN_ERROR")) {
-                        // Extract custom error message from server if it exists
-                        String errorMsg = rootNode.has("message") ? rootNode.get("message").asText() : "Credenciales inválidas";
-
-                        // On Login failure, display dialog cleanly
-                        JOptionPane.showMessageDialog(this, "Error en login: " + errorMsg, "Error de acceso", JOptionPane.ERROR_MESSAGE);
-                        ++errorCount;
-
-                        // Si se equivocó 3 veces ve a recuperar contraseña
-                        if (errorCount == 3) {
-                            errorCount = 0;
-
-                            if (txtEmail.getText().isEmpty()) {
-                                JOptionPane.showMessageDialog(this, "Debes escribir un correo para poder recuperar contraseña");
-                            } else {
-                                // Abre la pantalla de recuperación
-                                new RecoverPasswordView(txtEmail.getText()).setVisible(true);
-                                // Cierra actual
-                                dispose();
-                            }
-                        }
-                    }
-                }
-            } catch (Exception ex) {
-                System.err.println("Error procesando respuesta del servidor: " + ex.getMessage());
-            }
-        });
-
-        // Connect
-        client.tryConnect();
+    @Override
+    public void onTooManyAttempts() {
+        if (txtEmail.getText().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Debes escribir un correo para poder recuperar contraseña");
+        } else {
+            new RecoverPasswordView(txtEmail.getText()).setVisible(true);
+            dispose();
+        }
     }
 }

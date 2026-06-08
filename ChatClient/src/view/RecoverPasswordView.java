@@ -1,19 +1,17 @@
 package view;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import controller.RecoverPasswordController;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import model.dbrequest.RecoverPasswordRequest;
-import socket.ClientSocket;
 
 /**
  * @author alond
  */
-public class RecoverPasswordView extends JFrame {
+public class RecoverPasswordView extends JFrame implements RecoverPasswordController.View {
 
     private JPanel panelPrincipal;
     private JPasswordField txtNuevaPassword;
@@ -22,12 +20,15 @@ public class RecoverPasswordView extends JFrame {
     private JLabel lblEmail;
     private String email;
 
+    private RecoverPasswordController controller;
+
     // Recibe el correo electrónico que estaba en el login
     public RecoverPasswordView(String email) {
         super();
         this.email = email;
         initComponents();
-        initSocket();
+        controller = new RecoverPasswordController(this, email);
+        controller.connect();
     }
 
     private void initComponents() {
@@ -102,22 +103,8 @@ public class RecoverPasswordView extends JFrame {
                 return;
             }
 
-            // Send recover password request
-            try {
-                // Create object from data
-                RecoverPasswordRequest request = new RecoverPasswordRequest(email, password);
-
-                // Convert object to JSON usign Jackson
-                ObjectMapper mapper = new ObjectMapper();
-                String jsonString = mapper.writeValueAsString(request);
-
-                // Enviar el JSON al servidor
-                ClientSocket.getInstance().sendText(jsonString);
-
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Error al enviar solicitud: " + ex.getMessage());
-                ex.printStackTrace();
-            }
+            // Delega la lógica de negocio al controller
+            controller.recover(password);
         });
 
         gbc.gridy = 4;
@@ -204,42 +191,18 @@ public class RecoverPasswordView extends JFrame {
 //        });
     }
 
-    private void initSocket() {
-        // Get the global (singleton) instance
-        ClientSocket client = ClientSocket.getInstance();
+    // ===== Callbacks de RecoverPasswordController.View (solo UI/navegación) =====
 
-        // Tell the client to send updates to this frame's label
-        //client.setStatusListener(mensaje -> lblConStatus.setText(mensaje));
-        // Server responess Mapping
-        client.setMessageListener(rawJson -> {
-            try {
-                ObjectMapper mapper = new ObjectMapper();
-                com.fasterxml.jackson.databind.JsonNode rootNode = mapper.readTree(rawJson);
+    @Override
+    public void onRecoverSuccess() {
+        JOptionPane.showMessageDialog(this, "Contraseña reestablecida exitosamente");
+        new LoginView().setVisible(true);
+        this.dispose();
+    }
 
-                if (rootNode.has("type")) {
-                    String tipo = rootNode.get("type").asText();
-
-                    if (tipo.equals("RECOVER_PASSWORD_SUCCESS")) {
-                        // On signup success, go to login
-                        JOptionPane.showMessageDialog(this, "Contraseña reestablecida exitosamente");
-                        new LoginView().setVisible(true);
-                        this.dispose();
-
-                    } else if (tipo.equals("RECOVER_PASSWROD_ERROR")) {
-                        // Extract custom error message from server if it exists
-                        String errorMsg = rootNode.has("message") ? rootNode.get("message").asText() : "Error desconocido";
-
-                        // On Login failure, display dialog cleanly
-                        JOptionPane.showMessageDialog(this, "Error en recover password: " + errorMsg, "Error de acceso", JOptionPane.ERROR_MESSAGE);
-                    }
-                }
-            } catch (Exception ex) {
-                System.err.println("Error procesando respuesta del servidor: " + ex.getMessage());
-            }
-        });
-
-        // Connect
-        client.tryConnect();
+    @Override
+    public void onRecoverError(String message) {
+        JOptionPane.showMessageDialog(this, "Error en recover password: " + message, "Error de acceso", JOptionPane.ERROR_MESSAGE);
     }
 
 }

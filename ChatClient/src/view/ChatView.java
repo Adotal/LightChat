@@ -1,15 +1,13 @@
 package view;
 
+import controller.ChatController;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.RoundRectangle2D;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import model.Chat;
 import model.Message;
 import model.User;
 
@@ -28,14 +26,18 @@ public class ChatView extends JFrame {
     private JLabel lblStatusCircle;
     private JLabel lblUserName;
 
-    private User currentUser;       // remitente
-    private User receiverUser;      // destinatario
-    private Chat chatActual;
+    private ChatController controller;
 
     public ChatView() {
+        // Datos mock de prueba mientras no se navega con un usuario concreto
+        this(new User(1, "Anna", "annabanana@email.com", true),
+                new User(2, "Anna", "annabanana@email.com", true));
+    }
+
+    public ChatView(User currentUser, User receiverUser) {
         super();
+        controller = new ChatController(currentUser, receiverUser);
         initComponents();
-        initDataMock(); // ESO ES PARA LAS PRUEBAS 
         configurarEstilos();
         actualizarEstadoUsuario();
     }
@@ -90,6 +92,7 @@ public class ChatView extends JFrame {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 // Si está conectado: Azul #2544c4 si no: Gris azulado #8ba2b3
+                User receiverUser = controller.getReceiverUser();
                 if (receiverUser != null && receiverUser.getIsConnected()) {
                     g2.setColor(new Color(37, 68, 196));
                 } else {
@@ -231,46 +234,34 @@ public class ChatView extends JFrame {
         panelInput.getParent().setBackground(fondoOscuroPrincipal);
     }
 
-    //Esto es para simular la respuesta y el estado del usuario
-    private void initDataMock() {
-        currentUser = new User(1, "Anna", "annabanana@email.com", true);
-        receiverUser = new User(2, "Anna", "annabanana@email.com", true); // si lo pones en false, se cambia a inactivo 
-        
-        ArrayList<Message> listaMensajes = new ArrayList<>();
-        chatActual = new Chat(101, receiverUser, listaMensajes);
-    }
-
     //mandar al pojo de user
     public void actualizarEstadoUsuario() {
+        User receiverUser = controller.getReceiverUser();
         if (receiverUser != null) {
             lblUserName.setText(receiverUser.getName());
-            lblStatusCircle.repaint(); 
+            lblStatusCircle.repaint();
         }
     }
 
-    //Simula respuesta 
+    //Envia el mensaje (vía controller) y simula la respuesta del receptor
     private void procesarMensajeEnviado() {
         String texto = txtMensaje.getText().trim();
         if (texto.isEmpty() || texto.equals("Ingresa un mensaje")) {
             return;
         }
 
-        //pojo mensaje de remitente 
-        Message mensajeMio = new Message(currentUser, receiverUser, texto, LocalDateTime.now());
-        chatActual.getMessages().add(mensajeMio);
-
+        // El controller crea el modelo y lo agrega al chat
+        Message mensajeMio = controller.sendMessage(texto);
         agregarBurbujaMensaje(mensajeMio, true);
-        
+
         txtMensaje.setText("");
         txtMensaje.requestFocus();
 
-        // simulacion el otro usuario te regresa exactamente el mismo texto
+        // simulacion: el otro usuario te regresa exactamente el mismo texto
         Timer timerEco = new Timer(800, new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                Message mensajeEco = new Message(receiverUser, currentUser, " " + mensajeMio.getText(), LocalDateTime.now());
-                chatActual.getMessages().add(mensajeEco);
-                
+                Message mensajeEco = controller.buildEcho(mensajeMio);
                 agregarBurbujaMensaje(mensajeEco, false);
             }
         });
