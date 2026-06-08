@@ -40,6 +40,9 @@ public class UsersListView extends JFrame implements UsersListController.View {
     private Set<Integer> idsAmigos;
     private String pestañaActiva = "TODOS";
 
+    // Para visualizar "mensaje no leído"
+    private final java.util.HashSet<Integer> unreadUserIds = new java.util.HashSet<>();
+
     private UsersListController controller;
 
     public UsersListView() {
@@ -284,6 +287,9 @@ public class UsersListView extends JFrame implements UsersListController.View {
         final String[] estado = {esAmigoInitial ? "AMIGO" : "NINGUNO"};
         JPanel fila = crearContenedorFila();
 
+        // Validar si este usuario específico tiene un mensaje pendiente
+        boolean tieneMensajeNuevo = unreadUserIds.contains(usuario.getIdUser());
+
         JLabel lblAvatar = new JLabel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -301,7 +307,8 @@ public class UsersListView extends JFrame implements UsersListController.View {
         };
 
         JButton btnAccion = crearBotonAccionContacto(estado, usuario);
-        JPanel textos = crearPanelTextos(usuario.getName(), "Ultimo mensaje");
+        // Crea panel con bandera tieneMensajeNuevo
+        JPanel textos = crearPanelTextos(usuario.getName(), "", tieneMensajeNuevo);
 
         JPanel content = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 11));
         content.setOpaque(false);
@@ -318,6 +325,8 @@ public class UsersListView extends JFrame implements UsersListController.View {
             @Override
             public void mouseClicked(MouseEvent e) {
                 try {
+                    // Limpiar el estado de no leído antes de entrar a la ventana de chat
+                    unreadUserIds.remove(usuario.getIdUser());
                     new ChatView(usuario, pestañaActiva).setVisible(true);
                     dispose();
                 } catch (Exception ex) {
@@ -361,7 +370,7 @@ public class UsersListView extends JFrame implements UsersListController.View {
             }
         };
 
-        JPanel textos = crearPanelTextos(nombre, "Ultimo mensaje");
+        JPanel textos = crearPanelTextos(nombre, "Ultimo mensaje", false);
         JPanel content = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 11));
         content.setOpaque(false);
         content.add(lblIcono);
@@ -425,15 +434,16 @@ public class UsersListView extends JFrame implements UsersListController.View {
         return fila;
     }
 
-    private JPanel crearPanelTextos(String titulo, String sub) {
+    private JPanel crearPanelTextos(String titulo, String sub, boolean tieneMensajeNuevo) {
         JPanel p = new JPanel(new GridLayout(2, 1, 0, -2));
         p.setOpaque(false);
         JLabel t = new JLabel(titulo);
         t.setFont(new Font("Segoe UI", Font.BOLD, 14));
         t.setForeground(Color.WHITE);
-        JLabel s = new JLabel(sub);
-        s.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        s.setForeground(new Color(140, 150, 180));
+        // Si tiene mensaje nuevo, cambiamos el texto del subtítulo y su diseño
+        JLabel s = new JLabel(tieneMensajeNuevo ? "● Mensaje nuevo..." : sub);
+        s.setFont(new Font("Segoe UI", tieneMensajeNuevo ? Font.BOLD : Font.PLAIN, 12));
+        s.setForeground(tieneMensajeNuevo ? new Color(112, 142, 255) : new Color(140, 150, 180)); // Azul claro si no está leído
         p.add(t);
         p.add(s);
         return p;
@@ -532,7 +542,6 @@ public class UsersListView extends JFrame implements UsersListController.View {
     }
 
     // ===== Callbacks de UsersListController.View (solo UI/navegación) =====
-
     @Override
     public void onUsersLoaded(ArrayList<User> users) {
         listaUsuarios = users;
@@ -572,6 +581,15 @@ public class UsersListView extends JFrame implements UsersListController.View {
     public void onLogoutSuccess() {
         new LoginView().setVisible(true);
         dispose();
+    }
+
+    @Override
+    public void onNewMessageReceived(int senderId) {
+        // Agregamos el ID del remitente a la lista de no leídos
+        unreadUserIds.add(senderId);
+
+        // Refrescamos el contenido de la pestaña actual para pintar los cambios
+        loadContentAccordingToTab();
     }
 
 }

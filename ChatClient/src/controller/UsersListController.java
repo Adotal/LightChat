@@ -20,13 +20,24 @@ import util.Json;
 public class UsersListController {
 
     public interface View {
+
         void onUsersLoaded(ArrayList<User> users);
+
         void onFriendsLoaded(ArrayList<User> friends);
+
         void onGroupsLoaded(ArrayList<Group> groups);
+
         void onLogoutSuccess();
+
         void onFriendRequestResult(boolean ok, String message);
-        /** Llega una nueva solicitud de amistad entrante (para avisar al usuario). */
+
+        /**
+         * Llega una nueva solicitud de amistad entrante (para avisar al
+         * usuario).
+         */
         void onNewFriendRequest();
+
+        void onNewMessageReceived(int senderId);
     }
 
     private final View view;
@@ -40,13 +51,17 @@ public class UsersListController {
         registerHandlers();
     }
 
-    /** Registra un handler y guarda su referencia para limpieza posterior. */
+    /**
+     * Registra un handler y guarda su referencia para limpieza posterior.
+     */
     private void track(String type, Consumer<JsonNode> handler) {
         registered.put(type, handler);
         ServerDispatcher.getInstance().register(type, handler);
     }
 
-    /** Desregistra todos los handlers de red; llamar al cerrar la vista. */
+    /**
+     * Desregistra todos los handlers de red; llamar al cerrar la vista.
+     */
     public void dispose() {
         ServerDispatcher dispatcher = ServerDispatcher.getInstance();
         for (java.util.Map.Entry<String, Consumer<JsonNode>> e : registered.entrySet()) {
@@ -56,12 +71,29 @@ public class UsersListController {
     }
 
     private void registerHandlers() {
+
+        track("SEND_MESSAGE", root -> {
+            try {
+                System.out.println("RECEIVED");
+                if (root.has("message")) {
+                    // Extraer el ID del usuario que envió el mensaje
+                    int senderId = root.get("message").get("userSender").get("idUser").asInt();
+
+                    // Notificar a la vista en el hilo de Swing
+                    java.awt.EventQueue.invokeLater(() -> view.onNewMessageReceived(senderId));
+                }
+            } catch (Exception e) {
+                System.err.println("[UsersListController] Error capturando mensaje no leído: " + e.getMessage());
+            }
+        });
+
         track("UPDATE_USERS_LIST", root -> {
             if (!root.has("users")) {
                 return;
             }
             ArrayList<User> users = Json.mapper().convertValue(
-                    root.get("users"), new TypeReference<ArrayList<User>>() {});
+                    root.get("users"), new TypeReference<ArrayList<User>>() {
+            });
             view.onUsersLoaded(users);
         });
 
@@ -70,7 +102,8 @@ public class UsersListController {
                 return;
             }
             ArrayList<User> friends = Json.mapper().convertValue(
-                    root.get("friends"), new TypeReference<ArrayList<User>>() {});
+                    root.get("friends"), new TypeReference<ArrayList<User>>() {
+            });
             view.onFriendsLoaded(friends);
         });
 
@@ -94,12 +127,12 @@ public class UsersListController {
         track("GROUPS_LIST_UPDATED", root -> fetchGroups());
         track("GROUP_DELETED", root -> fetchGroups());
 
-        track("FRIEND_REQUEST_SENT", root ->
-                view.onFriendRequestResult(true,
+        track("FRIEND_REQUEST_SENT", root
+                -> view.onFriendRequestResult(true,
                         root.has("message") ? root.get("message").asText() : "Solicitud enviada."));
 
-        track("FRIEND_REQUEST_ERROR", root ->
-                view.onFriendRequestResult(false,
+        track("FRIEND_REQUEST_ERROR", root
+                -> view.onFriendRequestResult(false,
                         root.has("message") ? root.get("message").asText() : "No se pudo enviar la solicitud."));
 
         track("NEW_FRIEND_REQUEST", root -> view.onNewFriendRequest());
@@ -119,8 +152,8 @@ public class UsersListController {
     }
 
     public void fetchAllUsers() {
-        send("FETCH_ALL_USERS", req ->
-                req.put("email", SessionManager.getInstance().getCurrentUser().getEmail()));
+        send("FETCH_ALL_USERS", req
+                -> req.put("email", SessionManager.getInstance().getCurrentUser().getEmail()));
     }
 
     public void fetchFriends() {
@@ -139,8 +172,8 @@ public class UsersListController {
     }
 
     public void logout() {
-        send("LOGOUT_REQUEST", req ->
-                req.put("email", SessionManager.getInstance().getCurrentUser().getEmail()));
+        send("LOGOUT_REQUEST", req
+                -> req.put("email", SessionManager.getInstance().getCurrentUser().getEmail()));
     }
 
     private void send(String type, java.util.function.Consumer<ObjectNode> filler) {
