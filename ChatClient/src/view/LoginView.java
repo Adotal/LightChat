@@ -68,7 +68,7 @@ public class LoginView extends JFrame implements LoginController.View {
         gbc.insets = new Insets(0, 4, 8, 4);
         panelPrincipal.add(lblEmail, gbc);
 
-        txtEmail = crearCampoTexto("adotal1484@gmail.com");
+        txtEmail = crearCampoTexto("");
         gbc.gridy = 3;
         gbc.insets = new Insets(0, 0, 24, 0);
         panelPrincipal.add(txtEmail, gbc);
@@ -78,7 +78,7 @@ public class LoginView extends JFrame implements LoginController.View {
         gbc.insets = new Insets(0, 4, 8, 4);
         panelPrincipal.add(lblPass, gbc);
 
-        txtPassword = crearCampoPassword("1");
+        txtPassword = crearCampoPassword("");
         gbc.gridy = 5;
         gbc.insets = new Insets(0, 0, 60, 0);
         panelPrincipal.add(txtPassword, gbc);
