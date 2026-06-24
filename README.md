@@ -22,10 +22,16 @@ A Java-based client-server messaging application developed by a team of 8 studen
 
 ## Demo
 
-<img src="./docs/images/lc_login.png" alt="Login" width="450">
-<img src="./docs/images/lc_chats.png" alt="Chats" width="450">
-<img src="./docs/images/lc_group_chat.png" alt="Group Chat" width="450">
-<img src="./docs/images/lc_received_requests.png" alt="Notifications" width="450">
+<table>
+  <tr>
+    <td><img src="./docs/images/lc_login.png" alt="Login" width="450"></td>
+    <td><img src="./docs/images/lc_chats.png" alt="Chats" width="450"></td>
+  </tr>
+  <tr>
+    <td><img src="./docs/images/lc_group_chat.png" alt="Group Chat" width="450"></td>
+    <td><img src="./docs/images/lc_received_requests.png" alt="Notifications" width="450"></td>
+  </tr>
+</table>
 
 ## Features
 
